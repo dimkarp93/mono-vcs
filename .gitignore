@@ -1,0 +1,18 @@
+# Compiled binary (output of `make build`)
+/mono-vcs
+
+# Release artifacts (output of `make dist`)
+/dist/
+
+# Test binaries / coverage
+*.test
+*.out
+coverage.*
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Editor / OS cruft
+.DS_Store
+*.swp
