@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"mono-vcs/internal/app"
@@ -270,20 +269,76 @@ func parseIntermixed(fs *flag.FlagSet, args []string) ([]string, error) {
 	}
 }
 
-func (r *Runner) printUsage() {
-	names := make([]string, 0, len(r.Commands))
-	for n := range r.Commands {
-		names = append(names, n)
+type commandGroup struct {
+	title    string
+	desc     string
+	commands []string
+}
+
+var commandGroups = []commandGroup{
+	{
+		"Feature branches",
+		"create, switch, inspect and drop feature branches across every repo",
+		[]string{"features", "new", "switch", "cancel"},
+	},
+	{
+		"Repositories",
+		"clone and sync the raw git clones and their working trees",
+		[]string{"clone", "pull", "update-main", "list", "stash", "unstash", "clear-stash", "history-stash", "prune"},
+	},
+	{
+		"Shell delegation",
+		"fan an arbitrary shell command out to every repo",
+		[]string{"do"},
+	},
+	{
+		"Utility",
+		"configure mono-vcs and show help",
+		[]string{"init", "help"},
+	},
+}
+
+var commandSummaries = map[string]string{
+	"features":      "list feature branches across repos",
+	"new":           "create a feature branch off main in every repo (local only)",
+	"switch":        "switch every repo to a branch",
+	"cancel":        "delete a feature branch and return to main",
+	"clone":         "clone every GitLab project locally",
+	"pull":          "fast-forward main against GitLab",
+	"update-main":   "update main and rebase feature branches onto it",
+	"list":          "show the status of every repo",
+	"stash":         "stash uncommitted changes in each repo",
+	"unstash":       "pop the most recent stash in each repo",
+	"clear-stash":   "drop stashed changes in each repo",
+	"history-stash": "show stash entries per repo",
+	"prune":         "discard uncommitted working-tree changes",
+	"do":            "run a shell command in every repo",
+	"init":          "create or update the config file",
+	"help":          "show this help",
+}
+
+func commandLabel(n string) string {
+	if pos := positionalArgs[n]; pos != "" {
+		return n + " " + pos
 	}
-	sort.Strings(names)
+	return n
+}
+
+func (r *Runner) printUsage() {
 	fmt.Fprintln(r.Stdout, "mono-vcs — bulk-sync local clones with a GitLab instance.")
 	fmt.Fprintln(r.Stdout, "\nusage: mono-vcs <command> [options]")
-	fmt.Fprintln(r.Stdout, "\ncommands:")
-	for _, n := range names {
-		if pos := positionalArgs[n]; pos != "" {
-			fmt.Fprintf(r.Stdout, "  %s %s\n", n, pos)
-		} else {
-			fmt.Fprintf(r.Stdout, "  %s\n", n)
+	width := 0
+	for _, g := range commandGroups {
+		for _, n := range g.commands {
+			if w := len(commandLabel(n)); w > width {
+				width = w
+			}
+		}
+	}
+	for _, g := range commandGroups {
+		fmt.Fprintf(r.Stdout, "\n%s — %s\n", g.title, g.desc)
+		for _, n := range g.commands {
+			fmt.Fprintf(r.Stdout, "  %-*s  %s\n", width, commandLabel(n), commandSummaries[n])
 		}
 	}
 	fmt.Fprintln(r.Stdout, "\nrun `mono-vcs <command> -h` for command options.")
