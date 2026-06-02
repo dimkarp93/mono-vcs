@@ -15,7 +15,7 @@ func Init(ctx *app.Context) int {
 	out := ctx.Stdout
 
 	// init's job is to (re)write the config, so an unparseable existing file
-	// (e.g. a pre-JSON INI left by the Python tool) is non-fatal here.
+	// is non-fatal here.
 	existing, err := config.Load()
 	if err != nil {
 		existing = config.Config{}

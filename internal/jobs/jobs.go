@@ -14,8 +14,7 @@ import (
 type Worker func(path string) gitops.Result
 
 func RunPerRepo(ctx *app.Context, label string, worker Worker, successStates map[string]bool) int {
-	// successStates is kept for parity with the Python signature; only "failed"
-	// counts as failure here.
+	// successStates is currently unused; only "failed" counts as failure here.
 	_ = successStates
 	if _, err := exec.LookPath("git"); err != nil {
 		output.Die(ctx.Stderr, "git not found in PATH")

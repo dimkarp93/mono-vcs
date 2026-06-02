@@ -1,5 +1,5 @@
-// Package config reads/writes ~/.config/vcs-go. Unlike the Python original (INI)
-// this stores JSON; the token is never read from or written to the file.
+// Package config reads/writes ~/.config/mono-vcs. The config is stored as JSON;
+// the token is never read from or written to the file.
 package config
 
 import (
@@ -47,7 +47,7 @@ func Path() string {
 		}
 		base = filepath.Join(home, ".config")
 	}
-	return filepath.Join(base, "vcs-go")
+	return filepath.Join(base, "mono-vcs")
 }
 
 func Load() (Config, error) {
