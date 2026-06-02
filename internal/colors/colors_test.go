@@ -20,18 +20,10 @@ func TestColorizeDisabledIsPassthrough(t *testing.T) {
 	}
 }
 
-func TestEnabledRespectsNoColorFlag(t *testing.T) {
-	t.Setenv("NO_COLOR", "")
-	defer withTTY(true)()
-	if Enabled(true) {
-		t.Fatal("expected false when --no-color set")
-	}
-}
-
 func TestEnabledRespectsEnv(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	defer withTTY(true)()
-	if Enabled(false) {
+	if Enabled() {
 		t.Fatal("expected false when NO_COLOR set")
 	}
 }
@@ -39,15 +31,15 @@ func TestEnabledRespectsEnv(t *testing.T) {
 func TestEnabledFalseWhenNotTTY(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	defer withTTY(false)()
-	if Enabled(false) {
+	if Enabled() {
 		t.Fatal("expected false when not a TTY")
 	}
 }
 
-func TestEnabledTrueWhenTTYAndNoFlag(t *testing.T) {
+func TestEnabledTrueWhenTTY(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	defer withTTY(true)()
-	if !Enabled(false) {
-		t.Fatal("expected true when TTY and no flag")
+	if !Enabled() {
+		t.Fatal("expected true when TTY")
 	}
 }

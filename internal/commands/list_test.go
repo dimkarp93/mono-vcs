@@ -11,7 +11,7 @@ import (
 func listArgs(fake *testutil.FakeGitLab) *app.Args {
 	return &app.Args{
 		GLURL: testutil.S(fake.URL), GLToken: "T", Jobs: testutil.I(1),
-		NoColor: testutil.B(true), MainBranch: testutil.S("main"),
+		MainBranch: testutil.S("main"),
 	}
 }
 

@@ -69,7 +69,7 @@ func Features(ctx *app.Context) int {
 		sort.Strings(active)
 		rows = append(rows, output.FeatureRow{Branch: n, Repos: all, Active: active})
 	}
-	output.PrintFeaturesTable(out, rows, colors.Enabled(a.GetNoColor()))
+	output.PrintFeaturesTable(out, rows, colors.Enabled())
 	fmt.Fprintf(out, "\n%d feature branch(es) across %d repo(s)\n", len(rows), len(local))
 	return 0
 }

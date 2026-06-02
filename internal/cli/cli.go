@@ -94,7 +94,7 @@ func (r *Runner) Run(argv []string) int {
 		}
 	}
 	if has(glURLCommands, a.Command) && a.GetGLURL() == "" {
-		output.Die(r.Stderr, fmt.Sprintf("--gl-url is required (pass as flag or set it via `mono-vcs init`, file: %s)", config.Path()))
+		output.Die(r.Stderr, fmt.Sprintf("gl-url is not configured; set it via `mono-vcs init` (file: %s)", config.Path()))
 		return 1
 	}
 	if has(jobsCommands, a.Command) && a.Jobs != nil && *a.Jobs < 1 {
@@ -134,7 +134,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		return nil, errors.New("a subcommand is required")
 	}
 	cmd := argv[0]
-	if cmd == "-h" || cmd == "--help" || cmd == "help" {
+	if cmd == "-h" || cmd == "-help" || cmd == "--help" || cmd == "help" {
 		r.printUsage()
 		return nil, errHelp
 	}
@@ -154,10 +154,8 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		fs.PrintDefaults()
 	}
 
-	glURL := func() { fs.Var(&strPtr{&a.GLURL}, "gl-url", "GitLab base URL (default: from ~/.config/mono-vcs)") }
 	jobs := func() { fs.Var(&intPtr{&a.Jobs}, "jobs", "parallelism (default: from config, else 1)") }
 	mainBranch := func() { fs.Var(&strPtr{&a.MainBranch}, "main-branch", "main branch name") }
-	noColor := func() { fs.Var(&boolPtr{&a.NoColor}, "no-color", "disable ANSI colors") }
 	repo := func() {
 		fs.Var(&repoFlag{&a.Repo}, "repo", "restrict to these repos (repeatable; comma-separated; bare name matches by repo name, trailing / matches a folder, a path like group/repo matches that exact path)")
 		fs.StringVar(&a.Feature, "feat", "", "restrict to repos that have a local branch with this name (mutually exclusive with -repo)")
@@ -167,10 +165,8 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 
 	switch cmd {
 	case "list":
-		glURL()
 		jobs()
 		mainBranch()
-		noColor()
 		repo()
 		fs.BoolVar(&a.All, "all", false, "show every repo")
 		fs.BoolVar(&a.Changed, "changed", false, "changed repos (default filter)")
@@ -180,10 +176,8 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		fs.BoolVar(&a.NonOrigin, "non-origin", false, "repos that exist only locally")
 		fs.BoolVar(&a.OnlyOrigin, "only-origin", false, "repos that exist only on GitLab")
 	case "clone":
-		glURL()
 		jobs()
 	case "pull":
-		glURL()
 		jobs()
 		mainBranch()
 		repo()
@@ -198,18 +192,15 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		repo()
 		dryRun()
 	case "history-stash":
-		noColor()
 		repo()
 	case "prune":
 		jobs()
 		fs.BoolVar(&a.Yes, "yes", false, "auto-confirm")
 		fs.BoolVar(&a.Yes, "y", false, "auto-confirm")
-		noColor()
 		repo()
 		dryRun()
 	case "features":
 		mainBranch()
-		noColor()
 		repo()
 	case "do":
 		repo()

@@ -10,7 +10,7 @@ import (
 )
 
 func stashArgs() *app.Args {
-	return &app.Args{Jobs: testutil.I(1), NoColor: testutil.B(true)}
+	return &app.Args{Jobs: testutil.I(1)}
 }
 
 func TestStashSkipsClean(t *testing.T) {

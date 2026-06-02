@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"mono-vcs/internal/app"
 	"mono-vcs/internal/config"
@@ -48,17 +47,6 @@ func Init(ctx *app.Context) int {
 		return 1
 	}
 
-	ncCurrent := "false"
-	if existing.NoColor {
-		ncCurrent = "true"
-	}
-	ncRaw, err := pr.Free("Disable ANSI colors (true/false)", ncCurrent, false)
-	if err != nil {
-		output.Die(ctx.Stderr, err.Error())
-		return 1
-	}
-	noColor := config.TrueValues[strings.ToLower(ncRaw)]
-
 	mainBranch, err := pr.Choice("Main branch name", existing.MainBranch, config.MainBranchChoices, config.DefaultMainBranch)
 	if err != nil {
 		output.Die(ctx.Stderr, err.Error())
@@ -68,7 +56,6 @@ func Init(ctx *app.Context) int {
 	if err := config.Save(config.Config{
 		GLURL:      glURL,
 		Jobs:       jobs,
-		NoColor:    noColor,
 		MainBranch: mainBranch,
 	}); err != nil {
 		output.Die(ctx.Stderr, err.Error())

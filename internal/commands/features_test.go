@@ -9,7 +9,7 @@ import (
 )
 
 func featuresArgs() *app.Args {
-	return &app.Args{MainBranch: testutil.S("main"), NoColor: testutil.B(true)}
+	return &app.Args{MainBranch: testutil.S("main")}
 }
 
 func TestFeaturesEmpty(t *testing.T) {

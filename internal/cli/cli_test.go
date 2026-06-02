@@ -19,6 +19,17 @@ func newRunner(t *testing.T) (*Runner, *capture) {
 	return r, &capture{}
 }
 
+func newRunnerWithGLURL(t *testing.T) (*Runner, *capture) {
+	t.Helper()
+	config.SetPath(filepath.Join(t.TempDir(), "config"))
+	t.Cleanup(func() { config.SetPath("") })
+	if err := config.Save(config.Config{GLURL: "https://x"}); err != nil {
+		t.Fatal(err)
+	}
+	r := New(strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	return r, &capture{}
+}
+
 type capture struct {
 	args   *app.Args
 	called bool
@@ -47,9 +58,11 @@ func TestSubcommandsRegistered(t *testing.T) {
 }
 
 func TestHelpDoesNotCrash(t *testing.T) {
-	r, _ := newRunner(t)
-	if rc := r.Run([]string{"--help"}); rc != 0 {
-		t.Fatalf("rc=%d", rc)
+	for _, arg := range []string{"--help", "-help", "-h", "help"} {
+		r, _ := newRunner(t)
+		if rc := r.Run([]string{arg}); rc != 0 {
+			t.Fatalf("%s: rc=%d", arg, rc)
+		}
 	}
 }
 
@@ -61,21 +74,21 @@ func TestListRequiresGLURL(t *testing.T) {
 }
 
 func TestJobsZeroDies(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["list"] = c.handler
-	if rc := r.Run([]string{"list", "--gl-url", "https://x", "--jobs", "0"}); rc != 1 {
+	if rc := r.Run([]string{"list", "--jobs", "0"}); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
 }
 
 func TestPullDryRunSkipsToken(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["pull"] = c.handler
 	r.TokenFunc = func(optional bool) (string, error) {
 		t.Fatal("prompt_token must not be called in pull --dry-run")
 		return "", nil
 	}
-	if rc := r.Run([]string{"pull", "--gl-url", "https://x", "--dry-run"}); rc != 0 {
+	if rc := r.Run([]string{"pull", "--dry-run"}); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
 	if c.args.GLToken != "" {
@@ -84,7 +97,7 @@ func TestPullDryRunSkipsToken(t *testing.T) {
 }
 
 func TestListRequestsToken(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["list"] = c.handler
 	r.TokenFunc = func(optional bool) (string, error) {
 		if optional {
@@ -92,7 +105,7 @@ func TestListRequestsToken(t *testing.T) {
 		}
 		return "TOK", nil
 	}
-	r.Run([]string{"list", "--gl-url", "https://x"})
+	r.Run([]string{"list"})
 	if c.args.GLToken != "TOK" {
 		t.Fatalf("token=%q", c.args.GLToken)
 	}
