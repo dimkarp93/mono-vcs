@@ -2,9 +2,6 @@ package cli
 
 import "strconv"
 
-// These flag.Value types set their pointer only when the flag is present, so an
-// absent flag stays nil and config defaults can fill it later.
-
 type strPtr struct{ p **string }
 
 func (f *strPtr) String() string {

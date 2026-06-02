@@ -158,8 +158,7 @@ func PullOne(path, token string) Result {
 	if rc != 0 {
 		return Result{path, "failed", firstNonEmpty(errOut, out)}
 	}
-	// Heuristic: --quiet prints nothing when already up-to-date; any output
-	// means a real fast-forward happened. (Documented in arch.md.)
+
 	combined := strings.TrimSpace(out + errOut)
 	if combined == "" {
 		return Result{path, "up-to-date", ""}
@@ -202,8 +201,7 @@ func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr 
 	if rc != 0 {
 		return "failed", firstNonEmpty(errOut, out)
 	}
-	// stdio is passed through so the user can resolve conflicts interactively;
-	// on conflict the rebase is deliberately left in progress (not aborted).
+
 	cmd := exec.Command("git", "-C", path, "rebase", branch)
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
@@ -256,9 +254,6 @@ func ClearStashOne(path string) Result {
 	return Result{path, "cleared", fmt.Sprintf("dropped %d %s", n, ent)}
 }
 
-// PruneTargets lists every uncommitted change in the working tree — tracked
-// modifications (staged or not) as well as untracked files/dirs — that
-// PruneOne would discard. Ignored files are left out, matching `git clean -fd`.
 func PruneTargets(path string) ([]string, error) {
 	out, errOut, rc := runGit("-C", path, "status", "--porcelain")
 	if rc != 0 {
@@ -269,9 +264,7 @@ func PruneTargets(path string) ([]string, error) {
 		if len(line) < 4 {
 			continue
 		}
-		// Porcelain v1: two status chars, a space, then the path. Surface the
-		// status (e.g. "M", "??", "D") alongside the path so the listing shows
-		// what kind of change is being discarded.
+
 		code := strings.TrimSpace(line[:2])
 		targets = append(targets, code+" "+line[3:])
 	}
@@ -286,8 +279,7 @@ func PruneOne(path string) Result {
 	if len(targets) == 0 {
 		return Result{path, "nothing", ""}
 	}
-	// Revert tracked changes (staged + unstaged) to HEAD, then drop untracked
-	// files/dirs. Ignored files are preserved (no -x on clean).
+
 	if out, errOut, rc := runGit("-C", path, "reset", "--hard", "HEAD"); rc != 0 {
 		return Result{path, "failed", firstNonEmpty(errOut, out)}
 	}
@@ -375,9 +367,6 @@ func CancelOne(path, branch, mainBranch, token string) Result {
 	return Result{path, "deleted", detail + fmt.Sprintf("removed `%s`", branch)}
 }
 
-// NewBranchOne creates branch from the local mainBranch and checks it out,
-// purely locally (no fetch/pull/push). status ∈ {created, exists, dirty,
-// absent, failed}. absent means the repo has no local mainBranch to base on.
 func NewBranchOne(path, branch, mainBranch string) Result {
 	if IsDirty(path) {
 		return Result{path, "dirty", "uncommitted changes"}

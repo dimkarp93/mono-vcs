@@ -495,7 +495,7 @@ func TestPruneTargetsListsUntracked(t *testing.T) {
 }
 
 func TestPruneTargetsListsTrackedChange(t *testing.T) {
-	r := testutil.MakeRepo(t, t.TempDir(), "r", "main") // commits README
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "README", "changed")
 	targets, err := gitops.PruneTargets(r)
 	if err != nil || len(targets) != 1 || targets[0] != "M README" {

@@ -75,7 +75,7 @@ func TestPruneCleanRepoReportsNothing(t *testing.T) {
 func TestPruneRevertsTrackedChanges(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main") // commits README with content "x"
+	p := testutil.MakeRepo(t, ws, "p", "main")
 	writeFile(p, "README", "modified, but tracked")
 	ctx, out, _ := newCtx(pruneArgs(true), "")
 	if rc := commands.Prune(ctx); rc != 0 {
@@ -91,7 +91,7 @@ func TestPruneRevertsTrackedChanges(t *testing.T) {
 func TestPruneRevertsStagedChanges(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main") // commits README with content "x"
+	p := testutil.MakeRepo(t, ws, "p", "main")
 	writeFile(p, "README", "staged change")
 	testutil.Run(t, p, "git", "add", "README")
 	ctx, out, _ := newCtx(pruneArgs(true), "")

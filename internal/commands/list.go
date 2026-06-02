@@ -68,8 +68,6 @@ func List(ctx *app.Context) int {
 	branch := a.GetMainBranch()
 	jobs := a.GetJobs()
 
-	// inSync: missing key = not computed/indeterminate; value -1 unknown, 0
-	// diverged, 1 in-sync. The missing-vs-0 distinction matters for filtering.
 	inSync := map[string]int{}
 	info := map[string]localInfo{}
 	if haveGit {

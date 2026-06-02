@@ -95,9 +95,6 @@ func (r *Runner) Run(argv []string) int {
 		return 1
 	}
 
-	// Token policy (mirrors cli.py): required for list/clone/pull (but not
-	// pull --dry-run), optional for update-main/switch/cancel unless --dry-run,
-	// not requested otherwise.
 	switch {
 	case a.Command == "pull" && a.DryRun:
 		a.GLToken = ""
@@ -222,8 +219,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 
 	switch cmd {
 	case "switch", "cancel", "new":
-		// We allow flags after the positional branch; stdlib flag stops at the
-		// first non-flag, so parse them intermixed.
+
 		pos, err := parseIntermixed(fs, argv[1:])
 		if err != nil {
 			return nil, err
@@ -233,8 +229,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		}
 		a.Branch = pos[0]
 	case "do":
-		// REMAINDER: flags must precede the action; everything after is the
-		// action verbatim, flag-like tokens included.
+
 		if err := fs.Parse(argv[1:]); err != nil {
 			return nil, err
 		}

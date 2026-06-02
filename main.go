@@ -7,8 +7,6 @@ import (
 	"mono-vcs/internal/cli"
 )
 
-// version is the bare semver, injected at build time via
-// -ldflags "-X main.version=<ver>" (see Makefile / release workflow).
 var version = "dev"
 
 func main() {
