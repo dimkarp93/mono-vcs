@@ -117,15 +117,15 @@ func TestFilterTrailingSlashMatchesFolderRecursively(t *testing.T) {
 }
 
 func TestFilterCommaSeparatedInOneEntry(t *testing.T) {
-	got := FilterRepos([]string{"libs/a", "libs/b", "tools/gl-sync", "x/y"}, []string{"libs/,gl-sync"}, nw())
-	if !reflect.DeepEqual(got, []string{"libs/a", "libs/b", "tools/gl-sync"}) {
+	got := FilterRepos([]string{"libs/a", "libs/b", "tools/sync", "x/y"}, []string{"libs/,sync"}, nw())
+	if !reflect.DeepEqual(got, []string{"libs/a", "libs/b", "tools/sync"}) {
 		t.Fatalf("got %v", got)
 	}
 }
 
 func TestFilterSpaceSeparatedArgs(t *testing.T) {
-	got := FilterRepos([]string{"libs/a", "tools/gl-sync"}, []string{"libs/", "gl-sync"}, nw())
-	if !reflect.DeepEqual(got, []string{"libs/a", "tools/gl-sync"}) {
+	got := FilterRepos([]string{"libs/a", "tools/sync"}, []string{"libs/", "sync"}, nw())
+	if !reflect.DeepEqual(got, []string{"libs/a", "tools/sync"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -183,11 +183,11 @@ func TestFilterFullPathUnmatchedWarns(t *testing.T) {
 
 func TestFilterMixedKinds(t *testing.T) {
 	got := FilterRepos(
-		[]string{"libs/a", "libs/b", "tools/gl-sync", "a/b/repo"},
-		[]string{"libs/,a/b/repo,gl-sync"},
+		[]string{"libs/a", "libs/b", "tools/sync", "a/b/repo"},
+		[]string{"libs/,a/b/repo,sync"},
 		nw(),
 	)
-	if !reflect.DeepEqual(got, []string{"a/b/repo", "libs/a", "libs/b", "tools/gl-sync"}) {
+	if !reflect.DeepEqual(got, []string{"a/b/repo", "libs/a", "libs/b", "tools/sync"}) {
 		t.Fatalf("got %v", got)
 	}
 }

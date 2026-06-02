@@ -142,7 +142,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	fs.SetOutput(r.Stderr)
 
-	glURL := func() { fs.Var(&strPtr{&a.GLURL}, "gl-url", "GitLab base URL (default: from ~/.config/vcs-go)") }
+	glURL := func() { fs.Var(&strPtr{&a.GLURL}, "gl-url", "GitLab base URL (default: from ~/.config/mono-vcs)") }
 	jobs := func() { fs.Var(&intPtr{&a.Jobs}, "jobs", "parallelism (default: from config, else 1)") }
 	mainBranch := func() { fs.Var(&strPtr{&a.MainBranch}, "main-branch", "main branch name") }
 	noColor := func() { fs.Var(&boolPtr{&a.NoColor}, "no-color", "disable ANSI colors") }
@@ -222,8 +222,8 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 
 	switch cmd {
 	case "switch", "cancel", "new":
-		// argparse allows flags after the positional branch; stdlib flag stops
-		// at the first non-flag, so parse them intermixed.
+		// We allow flags after the positional branch; stdlib flag stops at the
+		// first non-flag, so parse them intermixed.
 		pos, err := parseIntermixed(fs, argv[1:])
 		if err != nil {
 			return nil, err

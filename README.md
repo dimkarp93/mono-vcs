@@ -69,7 +69,7 @@ make bump-patch   # 0.1.0 -> 0.1.1   (есть и bump-minor / bump-major)
 git commit -am "release X.Y.Z" && git push   # мерж в main запускает релиз
 ```
 
-## Конфиг (`~/.config/vcs-go`)
+## Конфиг (`~/.config/mono-vcs`)
 
 Управляется через `mono-vcs init`. Путь учитывает `$XDG_CONFIG_HOME`. Токен
 **не** хранится. Формат — JSON:
@@ -86,7 +86,7 @@ git commit -am "release X.Y.Z" && git push   # мерж в main запускае
 ## Примеры запуска
 
 ```bash
-mono-vcs init                                   # настроить ~/.config/vcs-go
+mono-vcs init                                   # настроить ~/.config/mono-vcs
 mono-vcs list --all                             # все репозитории с цветовой разметкой
 mono-vcs clone --gl-url https://gitlab.company.com
 mono-vcs pull --dry-run                         # показать план без действий

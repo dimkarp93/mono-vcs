@@ -6,7 +6,7 @@ type Args struct {
 	Command string
 
 	// Tri-state: nil means "not set on the CLI", so config.ApplyDefaults can
-	// fill it from ~/.config/vcs-go (the equivalent of argparse's default=None).
+	// fill it from ~/.config/mono-vcs.
 	GLURL      *string
 	Jobs       *int
 	NoColor    *bool
