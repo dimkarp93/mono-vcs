@@ -70,6 +70,13 @@ var (
 	glURLCommands = []string{"list", "clone", "pull"}
 )
 
+var positionalArgs = map[string]string{
+	"new":    "<feat-name>",
+	"switch": "<branch>",
+	"cancel": "<branch>",
+	"do":     "<command>...",
+}
+
 func (r *Runner) Run(argv []string) int {
 	a, err := r.parse(argv)
 	if err != nil {
@@ -138,6 +145,14 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	a := &app.Args{Command: cmd}
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	fs.SetOutput(r.Stderr)
+	fs.Usage = func() {
+		if pos := positionalArgs[cmd]; pos != "" {
+			fmt.Fprintf(r.Stderr, "usage: mono-vcs %s [options] %s\n\noptions:\n", cmd, pos)
+		} else {
+			fmt.Fprintf(r.Stderr, "usage: mono-vcs %s [options]\n\noptions:\n", cmd)
+		}
+		fs.PrintDefaults()
+	}
 
 	glURL := func() { fs.Var(&strPtr{&a.GLURL}, "gl-url", "GitLab base URL (default: from ~/.config/mono-vcs)") }
 	jobs := func() { fs.Var(&intPtr{&a.Jobs}, "jobs", "parallelism (default: from config, else 1)") }
@@ -274,7 +289,11 @@ func (r *Runner) printUsage() {
 	fmt.Fprintln(r.Stdout, "\nusage: mono-vcs <command> [options]")
 	fmt.Fprintln(r.Stdout, "\ncommands:")
 	for _, n := range names {
-		fmt.Fprintf(r.Stdout, "  %s\n", n)
+		if pos := positionalArgs[n]; pos != "" {
+			fmt.Fprintf(r.Stdout, "  %s %s\n", n, pos)
+		} else {
+			fmt.Fprintf(r.Stdout, "  %s\n", n)
+		}
 	}
 	fmt.Fprintln(r.Stdout, "\nrun `mono-vcs <command> -h` for command options.")
 }
