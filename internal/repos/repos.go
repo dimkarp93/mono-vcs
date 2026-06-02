@@ -23,8 +23,7 @@ func ScanLocalRepos(root string) map[string]bool {
 		if !d.IsDir() {
 			return nil
 		}
-		// Skip hidden dirs (.git, .cache, …) but not the root; don't descend
-		// into a found repo's working tree.
+
 		if path != rootAbs && strings.HasPrefix(d.Name(), ".") {
 			return fs.SkipDir
 		}
@@ -99,7 +98,7 @@ func FilterRepos(local []string, names []string, stderr io.Writer) []string {
 		case strings.HasSuffix(n, "/"):
 			groups = append(groups, strings.TrimRight(n, "/"))
 		case strings.Contains(n, "/"):
-			paths = append(paths, n) // full path relative to the current dir
+			paths = append(paths, n)
 		default:
 			bareRepos = append(bareRepos, n)
 		}

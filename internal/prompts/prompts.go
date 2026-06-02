@@ -37,8 +37,6 @@ func (p *Prompter) readLine() (string, error) {
 	return line, nil
 }
 
-// Token prefers the GITLAB_TOKEN env var (no prompt when set); otherwise it
-// reads a line with terminal echo suppressed on a best-effort basis.
 func (p *Prompter) Token(optional bool) (string, error) {
 	if v := strings.TrimSpace(os.Getenv("GITLAB_TOKEN")); v != "" {
 		return v, nil

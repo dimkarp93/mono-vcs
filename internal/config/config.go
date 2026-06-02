@@ -1,5 +1,3 @@
-// Package config reads/writes ~/.config/mono-vcs. The config is stored as JSON;
-// the token is never read from or written to the file.
 package config
 
 import (
@@ -32,7 +30,6 @@ type Config struct {
 
 var pathOverride string
 
-// SetPath overrides the config path (tests only).
 func SetPath(p string) { pathOverride = p }
 
 func Path() string {

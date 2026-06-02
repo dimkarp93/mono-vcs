@@ -5,8 +5,6 @@ import "io"
 type Args struct {
 	Command string
 
-	// Tri-state: nil means "not set on the CLI", so config.ApplyDefaults can
-	// fill it from ~/.config/mono-vcs.
 	GLURL      *string
 	Jobs       *int
 	NoColor    *bool
@@ -15,7 +13,7 @@ type Args struct {
 	GLToken string
 
 	Repo    []string
-	Feature string // -feat / -f; empty = not set (branch names are never empty)
+	Feature string
 	DryRun  bool
 	Yes     bool
 	Branch  string

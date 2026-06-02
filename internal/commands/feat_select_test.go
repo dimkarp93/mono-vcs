@@ -7,16 +7,14 @@ import (
 	"mono-vcs/internal/testutil"
 )
 
-// -feat selects repos that have the branch locally, regardless of whether it is
-// checked out, and skips repos that only have main.
 func TestDoFeatSelectsReposWithBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	a := testutil.MakeRepo(t, ws, "a", "main")
 	b := testutil.MakeRepo(t, ws, "b", "main")
 	testutil.MakeRepo(t, ws, "c", "main")
-	testutil.Run(t, a, "git", "branch", "feat-x")         // exists, not checked out
-	testutil.Run(t, b, "git", "checkout", "-b", "feat-x") // exists, checked out
+	testutil.Run(t, a, "git", "branch", "feat-x")
+	testutil.Run(t, b, "git", "checkout", "-b", "feat-x")
 
 	args := doArgs("pwd")
 	args.Feature = "feat-x"
