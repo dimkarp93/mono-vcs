@@ -57,6 +57,26 @@ func TestSubcommandsRegistered(t *testing.T) {
 	}
 }
 
+func TestEveryCommandIsGroupedAndDescribed(t *testing.T) {
+	grouped := map[string]bool{}
+	for _, g := range commandGroups {
+		for _, n := range g.commands {
+			if grouped[n] {
+				t.Fatalf("%q listed in more than one group", n)
+			}
+			grouped[n] = true
+			if commandSummaries[n] == "" {
+				t.Fatalf("%q has no summary", n)
+			}
+		}
+	}
+	for n := range DefaultCommands() {
+		if !grouped[n] {
+			t.Fatalf("registered command %q is not in any help group", n)
+		}
+	}
+}
+
 func TestHelpDoesNotCrash(t *testing.T) {
 	for _, arg := range []string{"--help", "-help", "-h", "help"} {
 		r, _ := newRunner(t)
