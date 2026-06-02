@@ -11,7 +11,7 @@ import (
 )
 
 func pruneArgs(yes bool) *app.Args {
-	return &app.Args{Jobs: testutil.I(1), NoColor: testutil.B(true), Yes: yes}
+	return &app.Args{Jobs: testutil.I(1), Yes: yes}
 }
 
 func TestPruneRemovesUntrackedFile(t *testing.T) {

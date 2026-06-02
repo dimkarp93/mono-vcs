@@ -15,13 +15,13 @@ func TestInitCreatesConfig(t *testing.T) {
 	cfg := filepath.Join(t.TempDir(), "vcs")
 	config.SetPath(cfg)
 	t.Cleanup(func() { config.SetPath("") })
-	ctx, _, _ := newCtx(&app.Args{}, "https://gl.example\n4\ntrue\nmain\n")
+	ctx, _, _ := newCtx(&app.Args{}, "https://gl.example\n4\nmain\n")
 	if rc := commands.Init(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
 	data, _ := os.ReadFile(cfg)
 	text := string(data)
-	for _, want := range []string{`"gl-url": "https://gl.example"`, `"jobs": 4`, `"no-color": true`, `"main-branch": "main"`} {
+	for _, want := range []string{`"gl-url": "https://gl.example"`, `"jobs": 4`, `"main-branch": "main"`} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in:\n%s", want, text)
 		}
@@ -33,10 +33,10 @@ func TestInitCreatesConfig(t *testing.T) {
 
 func TestInitUpdatesExisting(t *testing.T) {
 	cfg := filepath.Join(t.TempDir(), "vcs")
-	os.WriteFile(cfg, []byte(`{"gl-url":"https://old","jobs":1,"no-color":false,"main-branch":"master"}`), 0o644)
+	os.WriteFile(cfg, []byte(`{"gl-url":"https://old","jobs":1,"main-branch":"master"}`), 0o644)
 	config.SetPath(cfg)
 	t.Cleanup(func() { config.SetPath("") })
-	ctx, _, _ := newCtx(&app.Args{}, "\n\n\n\n")
+	ctx, _, _ := newCtx(&app.Args{}, "\n\n\n")
 	if rc := commands.Init(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}

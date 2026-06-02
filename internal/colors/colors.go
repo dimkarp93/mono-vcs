@@ -26,10 +26,7 @@ func Colorize(text, color string, enabled bool) string {
 	return text
 }
 
-func Enabled(noColorFlag bool) bool {
-	if noColorFlag {
-		return false
-	}
+func Enabled() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}

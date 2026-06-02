@@ -7,7 +7,6 @@ type Args struct {
 
 	GLURL      *string
 	Jobs       *int
-	NoColor    *bool
 	MainBranch *string
 
 	GLToken string
@@ -40,10 +39,6 @@ func (a *Args) GetJobs() int {
 		return 1
 	}
 	return *a.Jobs
-}
-
-func (a *Args) GetNoColor() bool {
-	return a.NoColor != nil && *a.NoColor
 }
 
 func (a *Args) GetMainBranch() string {

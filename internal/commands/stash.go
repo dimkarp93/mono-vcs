@@ -36,7 +36,6 @@ func ClearStash(ctx *app.Context) int {
 }
 
 func HistoryStash(ctx *app.Context) int {
-	a := ctx.Args
 	out := ctx.Stdout
 	if !hasGit() {
 		output.Die(ctx.Stderr, "git not found in PATH")
@@ -47,7 +46,7 @@ func HistoryStash(ctx *app.Context) int {
 		fmt.Fprintln(out, "no local git repositories found under current directory")
 		return 0
 	}
-	useColor := colors.Enabled(a.GetNoColor())
+	useColor := colors.Enabled()
 	total, empty := 0, 0
 	for _, p := range local {
 		entries, err := gitops.StashList(p)

@@ -78,7 +78,6 @@ git commit -am "release X.Y.Z" && git push   # мерж в main запускае
 {
   "gl-url": "https://gitlab.company.com",
   "jobs": 4,
-  "no-color": false,
   "main-branch": "main"
 }
 ```
@@ -88,7 +87,7 @@ git commit -am "release X.Y.Z" && git push   # мерж в main запускае
 ```bash
 mono-vcs init                                   # настроить ~/.config/mono-vcs
 mono-vcs list --all                             # все репозитории с цветовой разметкой
-mono-vcs clone --gl-url https://gitlab.company.com
+mono-vcs clone                                  # gl-url берётся из конфига
 mono-vcs pull --dry-run                         # показать план без действий
 mono-vcs update-main                            # подтянуть main, ребейзнуть фичи
 mono-vcs stash ; mono-vcs unstash

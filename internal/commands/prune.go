@@ -29,7 +29,7 @@ func Prune(ctx *app.Context) int {
 		fmt.Fprintln(out, "no local git repositories found under current directory")
 		return 0
 	}
-	useColor := colors.Enabled(a.GetNoColor())
+	useColor := colors.Enabled()
 
 	type plan struct {
 		path    string

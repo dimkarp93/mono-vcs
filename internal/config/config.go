@@ -19,12 +19,9 @@ const (
 
 var MainBranchChoices = []string{"main", "master"}
 
-var TrueValues = map[string]bool{"1": true, "true": true, "yes": true, "on": true}
-
 type Config struct {
 	GLURL      string `json:"gl-url,omitempty"`
 	Jobs       int    `json:"jobs,omitempty"`
-	NoColor    bool   `json:"no-color,omitempty"`
 	MainBranch string `json:"main-branch,omitempty"`
 }
 
@@ -94,10 +91,6 @@ func ApplyDefaults(a *app.Args) error {
 			j = 1
 		}
 		a.Jobs = &j
-	}
-	if a.NoColor == nil {
-		v := cfg.NoColor
-		a.NoColor = &v
 	}
 	if a.MainBranch == nil {
 		v := cfg.MainBranch

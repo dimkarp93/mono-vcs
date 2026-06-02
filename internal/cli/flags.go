@@ -29,24 +29,6 @@ func (f *intPtr) Set(s string) error {
 	return nil
 }
 
-type boolPtr struct{ p **bool }
-
-func (f *boolPtr) String() string {
-	if f.p != nil && *f.p != nil {
-		return strconv.FormatBool(**f.p)
-	}
-	return "false"
-}
-func (f *boolPtr) Set(s string) error {
-	b, err := strconv.ParseBool(s)
-	if err != nil {
-		return err
-	}
-	*f.p = &b
-	return nil
-}
-func (f *boolPtr) IsBoolFlag() bool { return true }
-
 type repoFlag struct{ p *[]string }
 
 func (f *repoFlag) String() string     { return "" }

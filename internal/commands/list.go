@@ -31,7 +31,7 @@ func mainInSync(p gitlab.Project, localPath, glURL, token, branch string) (bool,
 func List(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
-	useColor := colors.Enabled(a.GetNoColor())
+	useColor := colors.Enabled()
 
 	projects, err := gitlab.FetchProjects(a.GetGLURL(), a.GLToken)
 	if err != nil {
