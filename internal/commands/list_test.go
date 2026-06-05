@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"mono-vcs/internal/app"
+	"mono-vcs/internal/colors"
 	"mono-vcs/internal/commands"
 	"mono-vcs/internal/testutil"
 )
@@ -43,6 +44,39 @@ func TestListYellowWhenSHADiverges(t *testing.T) {
 	ctx, out, _ := newCtx(listArgs(fake), "")
 	commands.List(ctx)
 	contains(t, out.String(), "alpha/p")
+}
+
+func TestListOrangeWhenAhead(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	t.Setenv("NO_COLOR", "")
+	old := colors.IsTTY
+	colors.IsTTY = func() bool { return true }
+	t.Cleanup(func() { colors.IsTTY = old })
+
+	fake := testutil.NewFakeGitLab(t)
+	repo := testutil.MakeRepo(t, ws, "alpha/p", "main")
+	originSHA := headSHA(t, repo)
+	testutil.MakeRemote(t, t.TempDir(), repo, "main")
+	testutil.Commit(t, repo, "ahead", "extra", "y")
+	id := fake.AddProject("alpha/p", "")
+	fake.SetBranchSHA(id, "main", originSHA)
+	makeSyncedPair(t, ws, fake, "beta/q")
+
+	ctx, out, _ := newCtx(listArgs(fake), "")
+	commands.List(ctx)
+	contains(t, out.String(), colors.Orange+"alpha/p"+colors.Reset)
+}
+
+func TestListLegendDescribesOrangeAndBrown(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+
+	ctx, out, _ := newCtx(listArgs(fake), "")
+	commands.List(ctx)
+	contains(t, out.String(), "orange")
+	contains(t, out.String(), "brown")
 }
 
 func TestListRedLocalOnly(t *testing.T) {

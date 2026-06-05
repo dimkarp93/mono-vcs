@@ -28,6 +28,24 @@ func mainInSync(p gitlab.Project, localPath, glURL, token, branch string) (bool,
 	return remoteSHA == localSHA, true
 }
 
+func mainStatus(p gitlab.Project, localPath, glURL, token, branch string) string {
+	inSync, known := mainInSync(p, localPath, glURL, token, branch)
+	if !known {
+		return "unknown"
+	}
+	if inSync {
+		return "synced"
+	}
+	if s := gitops.AheadBehind(localPath, token, branch); s != "unknown" {
+		return s
+	}
+	return "behind"
+}
+
+func outOfSync(s string) bool {
+	return s == "ahead" || s == "behind" || s == "diverged"
+}
+
 func List(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
@@ -68,7 +86,7 @@ func List(ctx *app.Context) int {
 	branch := a.GetMainBranch()
 	jobs := a.GetJobs()
 
-	inSync := map[string]int{}
+	status := map[string]string{}
 	info := map[string]localInfo{}
 	if haveGit {
 		var mu sync.Mutex
@@ -80,17 +98,9 @@ func List(ctx *app.Context) int {
 			go func(path string) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				v, known := mainInSync(projectsByPath[path], path, a.GetGLURL(), a.GLToken, branch)
-				code := -1
-				if known {
-					if v {
-						code = 1
-					} else {
-						code = 0
-					}
-				}
+				s := mainStatus(projectsByPath[path], path, a.GetGLURL(), a.GLToken, branch)
 				mu.Lock()
-				inSync[path] = code
+				status[path] = s
 				mu.Unlock()
 			}(path)
 		}
@@ -145,7 +155,7 @@ func List(ctx *app.Context) int {
 				return true
 			}
 			if inRemote && inLocal {
-				if v, ok := inSync[path]; ok && v == 0 {
+				if outOfSync(status[path]) {
 					return true
 				}
 			}
@@ -181,8 +191,15 @@ func List(ctx *app.Context) int {
 			color := colors.Green
 			if onFeature {
 				color = colors.Blue
-			} else if v, ok := inSync[path]; ok && v == 0 {
-				color = colors.Yellow
+			} else {
+				switch status[path] {
+				case "behind":
+					color = colors.Yellow
+				case "ahead":
+					color = colors.Orange
+				case "diverged":
+					color = colors.Brown
+				}
 			}
 			line = colors.Colorize(path, color, useColor)
 		case inLocal:
@@ -234,7 +251,9 @@ func List(ctx *app.Context) int {
 	}
 	fmt.Fprintln(out, "legend:")
 	fmt.Fprintf(out, "  %s  — local & remote, local `%s` matches remote\n", colors.Colorize("green", colors.Green, useColor), branch)
-	fmt.Fprintf(out, "  %s — local & remote, local `%s` differs from remote (likely behind)\n", colors.Colorize("yellow", colors.Yellow, useColor), branch)
+	fmt.Fprintf(out, "  %s — local & remote, local `%s` is behind remote\n", colors.Colorize("yellow", colors.Yellow, useColor), branch)
+	fmt.Fprintf(out, "  %s — local & remote, local `%s` is ahead of remote\n", colors.Colorize("orange", colors.Orange, useColor), branch)
+	fmt.Fprintf(out, "  %s  — local & remote, local `%s` diverged — neither side fast-forwards the other\n", colors.Colorize("brown", colors.Brown, useColor), branch)
 	fmt.Fprintf(out, "  %s   — local repo currently on a non-`%s` branch (a feature branch)\n", colors.Colorize("blue", colors.Blue, useColor), branch)
 	fmt.Fprintf(out, "  %s    — local only\n", colors.Colorize("red", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote only\n", colors.Colorize("gray", colors.Gray, useColor))

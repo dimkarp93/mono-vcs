@@ -303,6 +303,53 @@ func TestUpdateMainFromFeatureReturnsOrig(t *testing.T) {
 	}
 }
 
+func TestAheadBehindSynced(t *testing.T) {
+	local, _ := testutil.LinkedRepo(t, t.TempDir())
+	if s := gitops.AheadBehind(local, "", "main"); s != "synced" {
+		t.Fatalf("status=%q", s)
+	}
+}
+
+func TestAheadBehindBehind(t *testing.T) {
+	dir := t.TempDir()
+	local, remote := testutil.LinkedRepo(t, dir)
+	side := filepath.Join(dir, "side")
+	testutil.Run(t, dir, "git", "clone", remote, side)
+	testutil.Commit(t, side, "advance", "extra", "y")
+	testutil.Run(t, side, "git", "push", "origin", "main")
+	if s := gitops.AheadBehind(local, "", "main"); s != "behind" {
+		t.Fatalf("status=%q", s)
+	}
+}
+
+func TestAheadBehindAhead(t *testing.T) {
+	local, _ := testutil.LinkedRepo(t, t.TempDir())
+	testutil.Commit(t, local, "local ahead", "extra", "y")
+	if s := gitops.AheadBehind(local, "", "main"); s != "ahead" {
+		t.Fatalf("status=%q", s)
+	}
+}
+
+func TestAheadBehindDiverged(t *testing.T) {
+	dir := t.TempDir()
+	local, remote := testutil.LinkedRepo(t, dir)
+	side := filepath.Join(dir, "side")
+	testutil.Run(t, dir, "git", "clone", remote, side)
+	testutil.Commit(t, side, "side", "x", "side")
+	testutil.Run(t, side, "git", "push", "origin", "main")
+	testutil.Commit(t, local, "local diverge", "y", "local")
+	if s := gitops.AheadBehind(local, "", "main"); s != "diverged" {
+		t.Fatalf("status=%q", s)
+	}
+}
+
+func TestAheadBehindNoOriginUnknown(t *testing.T) {
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
+	if s := gitops.AheadBehind(r, "", "main"); s != "unknown" {
+		t.Fatalf("status=%q", s)
+	}
+}
+
 func TestUpdateMainFailedPullRestoresFeature(t *testing.T) {
 	dir := t.TempDir()
 	local, remote := testutil.LinkedRepo(t, dir)

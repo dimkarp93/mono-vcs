@@ -8,6 +8,8 @@ const (
 	Yellow = "\033[33m"
 	Blue   = "\033[34m"
 	Gray   = "\033[90m"
+	Orange = "\033[38;5;208m"
+	Brown  = "\033[38;5;130m"
 	Reset  = "\033[0m"
 )
 

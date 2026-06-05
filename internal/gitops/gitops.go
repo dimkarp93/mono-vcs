@@ -166,6 +166,39 @@ func PullOne(path, token string) Result {
 	return Result{path, "updated", combined}
 }
 
+func isAncestor(path, a, b string) bool {
+	_, _, rc := runGit("-C", path, "merge-base", "--is-ancestor", a, b)
+	return rc == 0
+}
+
+func AheadBehind(path, token, branch string) string {
+	args := []string{"-C", path}
+	args = append(args, GitExtraHeaderArgs(token)...)
+	args = append(args, "fetch", "--quiet", "origin", branch)
+	if _, _, rc := runGit(args...); rc != 0 {
+		return "unknown"
+	}
+	local := LocalBranchSHA(path, branch)
+	out, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", "FETCH_HEAD")
+	if rc != 0 {
+		return "unknown"
+	}
+	remote := strings.TrimSpace(out)
+	if local == "" || remote == "" {
+		return "unknown"
+	}
+	if local == remote {
+		return "synced"
+	}
+	if isAncestor(path, remote, local) {
+		return "ahead"
+	}
+	if isAncestor(path, local, remote) {
+		return "behind"
+	}
+	return "diverged"
+}
+
 func UpdateMainOne(path, token, branch string) (Result, string) {
 	if IsDirty(path) {
 		return Result{path, "dirty", fmt.Sprintf("uncommitted changes — refusing to touch %s", branch)}, ""
