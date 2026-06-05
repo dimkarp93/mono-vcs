@@ -186,7 +186,10 @@ func UpdateMainOne(path, token, branch string) (Result, string) {
 	args = append(args, "pull", "--ff-only", "--quiet")
 	out, errOut, rc := runGit(args...)
 	if rc != 0 {
-		return Result{path, "failed", firstNonEmpty(errOut, out)}, orig
+		if orig != "" {
+			runGit("-C", path, "checkout", orig)
+		}
+		return Result{path, "failed", firstNonEmpty(errOut, out)}, ""
 	}
 	combined := strings.TrimSpace(out + errOut)
 	status := "up-to-date"

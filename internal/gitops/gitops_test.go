@@ -303,6 +303,25 @@ func TestUpdateMainFromFeatureReturnsOrig(t *testing.T) {
 	}
 }
 
+func TestUpdateMainFailedPullRestoresFeature(t *testing.T) {
+	dir := t.TempDir()
+	local, remote := testutil.LinkedRepo(t, dir)
+	side := filepath.Join(dir, "side")
+	testutil.Run(t, dir, "git", "clone", remote, side)
+	testutil.Commit(t, side, "side", "x", "side")
+	testutil.Run(t, side, "git", "push", "origin", "main")
+	testutil.Commit(t, local, "local diverge", "y", "local")
+	testutil.Run(t, local, "git", "fetch")
+	testutil.Run(t, local, "git", "checkout", "-b", "feature")
+	res, orig := gitops.UpdateMainOne(local, "", "main")
+	if res.Status != "failed" || orig != "" {
+		t.Fatalf("got %+v orig=%q", res, orig)
+	}
+	if b := gitops.CurrentBranch(local); b != "feature" {
+		t.Fatalf("expected restored to feature, on %q", b)
+	}
+}
+
 func TestRebaseOneSuccess(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	testutil.Commit(t, r, "base", "base", "base")
