@@ -78,7 +78,7 @@ func Pull(w io.Writer, a *app.Args, repos []string) {
 
 func UpdateMain(w io.Writer, a *app.Args, repos []string) {
 	branch := a.GetMainBranch()
-	header(w, "update-main", repos)
+	header(w, "update", repos)
 	fmt.Fprintln(w, "  Условие: если в репозитории есть незакоммиченные изменения "+
 		"(staged / unstaged / untracked) — пропустить с ошибкой.")
 	fmt.Fprintln(w, "  Иначе:")

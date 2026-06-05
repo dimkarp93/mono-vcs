@@ -37,7 +37,7 @@ func DefaultCommands() map[string]Handler {
 		"list":          commands.List,
 		"clone":         commands.Clone,
 		"pull":          commands.Pull,
-		"update-main":   commands.UpdateMain,
+		"update":        commands.UpdateMain,
 		"stash":         commands.Stash,
 		"unstash":       commands.Unstash,
 		"clear-stash":   commands.ClearStash,
@@ -63,11 +63,7 @@ func has(set []string, s string) bool {
 	return false
 }
 
-var (
-	jobsCommands = []string{"list", "clone", "pull", "update-main", "stash",
-		"unstash", "switch", "clear-stash", "cancel", "new", "prune"}
-	glURLCommands = []string{"list", "clone", "pull"}
-)
+var glURLCommands = []string{"list", "clone", "pull"}
 
 var positionalArgs = map[string]string{
 	"new":    "<feat-name>",
@@ -96,11 +92,6 @@ func (r *Runner) Run(argv []string) int {
 		output.Die(r.Stderr, fmt.Sprintf("gl-url is not configured; set it via `mono-vcs init` (file: %s)", config.Path()))
 		return 1
 	}
-	if has(jobsCommands, a.Command) && a.Jobs != nil && *a.Jobs < 1 {
-		output.Die(r.Stderr, "--jobs must be >= 1")
-		return 1
-	}
-
 	switch {
 	case a.Command == "pull" && a.DryRun:
 		a.GLToken = ""
@@ -111,7 +102,7 @@ func (r *Runner) Run(argv []string) int {
 			return 1
 		}
 		a.GLToken = tok
-	case a.Command == "update-main" || a.Command == "switch" || a.Command == "cancel":
+	case a.Command == "update" || a.Command == "switch" || a.Command == "cancel":
 		if a.DryRun {
 			a.GLToken = ""
 		} else {
@@ -153,18 +144,15 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		fs.PrintDefaults()
 	}
 
-	jobs := func() { fs.Var(&intPtr{&a.Jobs}, "jobs", "parallelism (default: from config, else 1)") }
 	mainBranch := func() { fs.Var(&strPtr{&a.MainBranch}, "main-branch", "main branch name") }
 	repo := func() {
 		fs.Var(&repoFlag{&a.Repo}, "repo", "restrict to these repos (repeatable; comma-separated; bare name matches by repo name, trailing / matches a folder, a path like group/repo matches that exact path)")
 		fs.StringVar(&a.Feature, "feat", "", "restrict to repos that have a local branch with this name (mutually exclusive with -repo)")
-		fs.StringVar(&a.Feature, "f", "", "shorthand for -feat")
 	}
 	dryRun := func() { fs.BoolVar(&a.DryRun, "dry-run", false, "print the git commands that would run") }
 
 	switch cmd {
 	case "list":
-		jobs()
 		mainBranch()
 		repo()
 		fs.BoolVar(&a.All, "all", false, "show every repo")
@@ -175,25 +163,20 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		fs.BoolVar(&a.NonOrigin, "non-origin", false, "repos that exist only locally")
 		fs.BoolVar(&a.OnlyOrigin, "only-origin", false, "repos that exist only on GitLab")
 	case "clone":
-		jobs()
 	case "pull":
-		jobs()
 		mainBranch()
 		repo()
 		dryRun()
-	case "update-main":
-		jobs()
+	case "update":
 		mainBranch()
 		repo()
 		dryRun()
 	case "stash", "unstash", "clear-stash":
-		jobs()
 		repo()
 		dryRun()
 	case "history-stash":
 		repo()
 	case "prune":
-		jobs()
 		fs.BoolVar(&a.Yes, "yes", false, "auto-confirm")
 		fs.BoolVar(&a.Yes, "y", false, "auto-confirm")
 		repo()
@@ -205,17 +188,14 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		repo()
 		dryRun()
 	case "switch":
-		jobs()
 		mainBranch()
 		repo()
 		dryRun()
 	case "cancel":
-		jobs()
 		mainBranch()
 		repo()
 		dryRun()
 	case "new":
-		jobs()
 		mainBranch()
 		repo()
 		dryRun()
@@ -284,7 +264,7 @@ var commandGroups = []commandGroup{
 	{
 		"Repositories",
 		"clone and sync the raw git clones and their working trees",
-		[]string{"clone", "pull", "update-main", "list", "stash", "unstash", "clear-stash", "history-stash", "prune"},
+		[]string{"clone", "pull", "update", "list", "stash", "unstash", "clear-stash", "history-stash", "prune"},
 	},
 	{
 		"Shell delegation",
@@ -305,7 +285,7 @@ var commandSummaries = map[string]string{
 	"cancel":        "delete a feature branch and return to main",
 	"clone":         "clone every GitLab project locally",
 	"pull":          "fast-forward main against GitLab",
-	"update-main":   "update main and rebase feature branches onto it",
+	"update":        "update main and rebase feature branches onto it",
 	"list":          "show the status of every repo",
 	"stash":         "stash uncommitted changes in each repo",
 	"unstash":       "pop the most recent stash in each repo",

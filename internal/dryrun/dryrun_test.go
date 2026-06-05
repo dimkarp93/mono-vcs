@@ -38,7 +38,7 @@ func TestDryPull(t *testing.T) {
 
 func TestDryUpdateMain(t *testing.T) {
 	out := render(func(b *bytes.Buffer) { UpdateMain(b, ns(), []string{"a"}) })
-	expectHeader(t, out, "update-main", 1)
+	expectHeader(t, out, "update", 1)
 	mustContain(t, out, "checkout main", "rebase main", "незакоммиченные")
 }
 

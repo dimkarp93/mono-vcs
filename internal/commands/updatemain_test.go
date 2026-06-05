@@ -62,5 +62,5 @@ func TestUpdateMainDryRunDoesNotTouch(t *testing.T) {
 	if rc := commands.UpdateMain(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
-	contains(t, out.String(), "DRY-RUN: update-main")
+	contains(t, out.String(), "DRY-RUN: update")
 }

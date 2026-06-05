@@ -47,7 +47,7 @@ func TestSubcommandsRegistered(t *testing.T) {
 		got[k] = true
 	}
 	want := map[string]bool{
-		"list": true, "clone": true, "pull": true, "update-main": true,
+		"list": true, "clone": true, "pull": true, "update": true,
 		"stash": true, "unstash": true, "clear-stash": true, "history-stash": true,
 		"prune": true, "features": true, "do": true, "switch": true,
 		"cancel": true, "new": true, "init": true,
@@ -93,14 +93,6 @@ func TestListRequiresGLURL(t *testing.T) {
 	}
 }
 
-func TestJobsZeroDies(t *testing.T) {
-	r, c := newRunnerWithGLURL(t)
-	r.Commands["list"] = c.handler
-	if rc := r.Run([]string{"list", "--jobs", "0"}); rc != 1 {
-		t.Fatalf("rc=%d", rc)
-	}
-}
-
 func TestPullDryRunSkipsToken(t *testing.T) {
 	r, c := newRunnerWithGLURL(t)
 	r.Commands["pull"] = c.handler
@@ -131,15 +123,15 @@ func TestListRequestsToken(t *testing.T) {
 	}
 }
 
-func TestUpdateMainTokenOptional(t *testing.T) {
+func TestUpdateTokenOptional(t *testing.T) {
 	r, c := newRunner(t)
-	r.Commands["update-main"] = c.handler
+	r.Commands["update"] = c.handler
 	gotOptional := false
 	r.TokenFunc = func(optional bool) (string, error) {
 		gotOptional = optional
 		return "", nil
 	}
-	r.Run([]string{"update-main"})
+	r.Run([]string{"update"})
 	if !gotOptional || c.args.GLToken != "" {
 		t.Fatalf("optional=%v token=%q", gotOptional, c.args.GLToken)
 	}
@@ -159,14 +151,6 @@ func TestPruneDoesNotRequestToken(t *testing.T) {
 	r.Commands["prune"] = c.handler
 	r.TokenFunc = func(bool) (string, error) { t.Fatal("token should not be asked"); return "", nil }
 	if rc := r.Run([]string{"prune"}); rc != 0 {
-		t.Fatalf("rc=%d", rc)
-	}
-}
-
-func TestPruneJobsZeroDies(t *testing.T) {
-	r, c := newRunner(t)
-	r.Commands["prune"] = c.handler
-	if rc := r.Run([]string{"prune", "--jobs", "0"}); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
 }
@@ -214,14 +198,14 @@ func TestFeatFlagParses(t *testing.T) {
 	}
 }
 
-func TestFeatShorthandParses(t *testing.T) {
+func TestFeatShorthandRejected(t *testing.T) {
 	r, c := newRunner(t)
 	r.Commands["do"] = c.handler
-	if rc := r.Run([]string{"do", "-f", "MVPAY-290", "git", "status"}); rc != 0 {
+	if rc := r.Run([]string{"do", "-f", "MVPAY-290", "git", "status"}); rc != 2 {
 		t.Fatalf("rc=%d", rc)
 	}
-	if c.args.Feature != "MVPAY-290" {
-		t.Fatalf("feature=%q", c.args.Feature)
+	if c.called {
+		t.Fatal("handler should not run for removed -f shorthand")
 	}
 }
 
