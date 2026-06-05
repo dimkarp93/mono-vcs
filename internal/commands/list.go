@@ -18,6 +18,7 @@ type localInfo struct {
 	dirty     bool
 	hasLocal  bool
 	untracked bool
+	conflict  bool
 	when      string
 	hash      string
 }
@@ -113,10 +114,10 @@ func List(ctx *app.Context) int {
 			go func(path string) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				b, d, h, u := gitops.LocalInfo(path)
+				b, d, h, u, c := gitops.LocalInfo(path)
 				when, hash := gitops.LastCommit(path)
 				mu.Lock()
-				info[path] = localInfo{b, d, h, u, when, hash}
+				info[path] = localInfo{b, d, h, u, c, when, hash}
 				mu.Unlock()
 			}(path)
 		}
@@ -182,13 +183,14 @@ func List(ctx *app.Context) int {
 		inRemote := remote[path]
 		inLocal := local[path]
 		var cur string
-		var hasLocal, untracked bool
+		var hasLocal, untracked, conflict bool
 		var when, hash string
 		if inLocal {
 			ci := info[path]
 			cur = ci.branch
 			hasLocal = ci.hasLocal
 			untracked = ci.untracked
+			conflict = ci.conflict
 			when = ci.when
 			hash = ci.hash
 		}
@@ -236,6 +238,9 @@ func List(ctx *app.Context) int {
 				line += " " + colors.Colorize("●", colors.Gray, useColor)
 			}
 		}
+		if conflict {
+			line = colors.Colorize("[!]", colors.Red, useColor) + " " + line
+		}
 		fmt.Fprintln(out, line)
 	}
 
@@ -274,6 +279,7 @@ func List(ctx *app.Context) int {
 	fmt.Fprintf(out, "  %s   — local repo currently on a non-`%s` branch (a feature branch)\n", colors.Colorize("blue", colors.Blue, useColor), branch)
 	fmt.Fprintf(out, "  %s    — local only\n", colors.Colorize("red", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote only\n", colors.Colorize("gray", colors.Gray, useColor))
+	fmt.Fprintf(out, "  %s      — repo in a conflict state (unresolved merge/rebase)\n", colors.Colorize("[!]", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s — current branch of local repo\n", colors.Colorize("[branch]", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s — last commit time (local)\n", colors.Colorize("(YYYY-MM-DD HH:mm)", colors.Orange, useColor))
 	fmt.Fprintf(out, "  %s — last commit hash (local)\n", colors.Colorize("<hash>", colors.Blue, useColor))

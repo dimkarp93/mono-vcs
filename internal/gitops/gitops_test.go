@@ -3,6 +3,7 @@ package gitops_test
 import (
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -49,27 +50,27 @@ func TestIsDirtyUntracked(t *testing.T) {
 }
 
 func TestLocalInfoClean(t *testing.T) {
-	b, d, h, u := gitops.LocalInfo(testutil.MakeRepo(t, t.TempDir(), "r", "main"))
-	if b != "main" || d || h || u {
-		t.Fatalf("got %q %v %v %v", b, d, h, u)
+	b, d, h, u, c := gitops.LocalInfo(testutil.MakeRepo(t, t.TempDir(), "r", "main"))
+	if b != "main" || d || h || u || c {
+		t.Fatalf("got %q %v %v %v %v", b, d, h, u, c)
 	}
 }
 
 func TestLocalInfoUntrackedIsDirtyNotLocal(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "untracked", "x")
-	_, d, h, u := gitops.LocalInfo(r)
-	if !d || h || !u {
-		t.Fatalf("dirty=%v hasLocal=%v untracked=%v", d, h, u)
+	_, d, h, u, c := gitops.LocalInfo(r)
+	if !d || h || !u || c {
+		t.Fatalf("dirty=%v hasLocal=%v untracked=%v conflict=%v", d, h, u, c)
 	}
 }
 
 func TestLocalInfoUnstagedIsLocal(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "README", "changed")
-	_, d, h, u := gitops.LocalInfo(r)
-	if !d || !h || u {
-		t.Fatalf("dirty=%v hasLocal=%v untracked=%v", d, h, u)
+	_, d, h, u, c := gitops.LocalInfo(r)
+	if !d || !h || u || c {
+		t.Fatalf("dirty=%v hasLocal=%v untracked=%v conflict=%v", d, h, u, c)
 	}
 }
 
@@ -77,9 +78,27 @@ func TestLocalInfoStagedIsLocal(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "new", "x")
 	testutil.Run(t, r, "git", "add", "new")
-	_, d, h, u := gitops.LocalInfo(r)
-	if !d || !h || u {
-		t.Fatalf("dirty=%v hasLocal=%v untracked=%v", d, h, u)
+	_, d, h, u, c := gitops.LocalInfo(r)
+	if !d || !h || u || c {
+		t.Fatalf("dirty=%v hasLocal=%v untracked=%v conflict=%v", d, h, u, c)
+	}
+}
+
+func TestLocalInfoConflict(t *testing.T) {
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
+	testutil.Commit(t, r, "base", "f", "base\n")
+	testutil.Run(t, r, "git", "checkout", "-b", "feature")
+	testutil.Commit(t, r, "feature", "f", "feature\n")
+	testutil.Run(t, r, "git", "checkout", "main")
+	testutil.Commit(t, r, "main change", "f", "main\n")
+	merge := exec.Command("git", "merge", "feature")
+	merge.Dir = r
+	if err := merge.Run(); err == nil {
+		t.Fatal("expected merge to conflict")
+	}
+	_, _, _, _, c := gitops.LocalInfo(r)
+	if !c {
+		t.Fatal("expected conflict=true")
 	}
 }
 

@@ -52,11 +52,11 @@ func IsDirty(path string) bool {
 	return rc == 0 && strings.TrimSpace(out) != ""
 }
 
-func LocalInfo(path string) (branch string, dirty, hasLocal, hasUntracked bool) {
+func LocalInfo(path string) (branch string, dirty, hasLocal, hasUntracked, conflict bool) {
 	branch = CurrentBranch(path)
 	out, _, rc := runGit("-C", path, "status", "--porcelain")
 	if rc != 0 {
-		return branch, false, false, false
+		return branch, false, false, false, false
 	}
 	var lines []string
 	for _, l := range strings.Split(out, "\n") {
@@ -71,8 +71,22 @@ func LocalInfo(path string) (branch string, dirty, hasLocal, hasUntracked bool) 
 		} else {
 			hasLocal = true
 		}
+		if isConflictStatus(l) {
+			conflict = true
+		}
 	}
-	return branch, dirty, hasLocal, hasUntracked
+	return branch, dirty, hasLocal, hasUntracked, conflict
+}
+
+func isConflictStatus(line string) bool {
+	if len(line) < 2 {
+		return false
+	}
+	x, y := line[0], line[1]
+	if x == 'U' || y == 'U' {
+		return true
+	}
+	return (x == 'A' && y == 'A') || (x == 'D' && y == 'D')
 }
 
 func LastCommit(path string) (when, hash string) {
