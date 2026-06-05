@@ -49,27 +49,27 @@ func TestIsDirtyUntracked(t *testing.T) {
 }
 
 func TestLocalInfoClean(t *testing.T) {
-	b, d, h := gitops.LocalInfo(testutil.MakeRepo(t, t.TempDir(), "r", "main"))
-	if b != "main" || d || h {
-		t.Fatalf("got %q %v %v", b, d, h)
+	b, d, h, u := gitops.LocalInfo(testutil.MakeRepo(t, t.TempDir(), "r", "main"))
+	if b != "main" || d || h || u {
+		t.Fatalf("got %q %v %v %v", b, d, h, u)
 	}
 }
 
 func TestLocalInfoUntrackedIsDirtyNotLocal(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "untracked", "x")
-	_, d, h := gitops.LocalInfo(r)
-	if !d || h {
-		t.Fatalf("dirty=%v hasLocal=%v", d, h)
+	_, d, h, u := gitops.LocalInfo(r)
+	if !d || h || !u {
+		t.Fatalf("dirty=%v hasLocal=%v untracked=%v", d, h, u)
 	}
 }
 
 func TestLocalInfoUnstagedIsLocal(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "README", "changed")
-	_, d, h := gitops.LocalInfo(r)
-	if !d || !h {
-		t.Fatalf("dirty=%v hasLocal=%v", d, h)
+	_, d, h, u := gitops.LocalInfo(r)
+	if !d || !h || u {
+		t.Fatalf("dirty=%v hasLocal=%v untracked=%v", d, h, u)
 	}
 }
 
@@ -77,9 +77,9 @@ func TestLocalInfoStagedIsLocal(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "new", "x")
 	testutil.Run(t, r, "git", "add", "new")
-	_, d, h := gitops.LocalInfo(r)
-	if !d || !h {
-		t.Fatalf("dirty=%v hasLocal=%v", d, h)
+	_, d, h, u := gitops.LocalInfo(r)
+	if !d || !h || u {
+		t.Fatalf("dirty=%v hasLocal=%v untracked=%v", d, h, u)
 	}
 }
 

@@ -14,9 +14,12 @@ import (
 )
 
 type localInfo struct {
-	branch   string
-	dirty    bool
-	hasLocal bool
+	branch    string
+	dirty     bool
+	hasLocal  bool
+	untracked bool
+	when      string
+	hash      string
 }
 
 func mainInSync(p gitlab.Project, localPath, glURL, token, branch string) (bool, bool) {
@@ -110,9 +113,10 @@ func List(ctx *app.Context) int {
 			go func(path string) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				b, d, h := gitops.LocalInfo(path)
+				b, d, h, u := gitops.LocalInfo(path)
+				when, hash := gitops.LastCommit(path)
 				mu.Lock()
-				info[path] = localInfo{b, d, h}
+				info[path] = localInfo{b, d, h, u, when, hash}
 				mu.Unlock()
 			}(path)
 		}
@@ -178,11 +182,15 @@ func List(ctx *app.Context) int {
 		inRemote := remote[path]
 		inLocal := local[path]
 		var cur string
-		var dirty bool
+		var hasLocal, untracked bool
+		var when, hash string
 		if inLocal {
 			ci := info[path]
 			cur = ci.branch
-			dirty = ci.dirty
+			hasLocal = ci.hasLocal
+			untracked = ci.untracked
+			when = ci.when
+			hash = ci.hash
 		}
 		onFeature := cur != "" && cur != branch
 		var line string
@@ -215,8 +223,17 @@ func List(ctx *app.Context) int {
 			if cur != "" {
 				line += " " + colors.Colorize("["+cur+"]", colors.Red, useColor)
 			}
-			if dirty {
+			if when != "" {
+				line += " " + colors.Colorize("("+when+")", colors.Orange, useColor)
+			}
+			if hash != "" {
+				line += " " + colors.Colorize("<"+hash+">", colors.Blue, useColor)
+			}
+			if hasLocal {
 				line += " " + colors.Colorize("✗", colors.Yellow, useColor)
+			}
+			if untracked {
+				line += " " + colors.Colorize("●", colors.Gray, useColor)
 			}
 		}
 		fmt.Fprintln(out, line)
@@ -258,6 +275,9 @@ func List(ctx *app.Context) int {
 	fmt.Fprintf(out, "  %s    — local only\n", colors.Colorize("red", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote only\n", colors.Colorize("gray", colors.Gray, useColor))
 	fmt.Fprintf(out, "  %s — current branch of local repo\n", colors.Colorize("[branch]", colors.Red, useColor))
-	fmt.Fprintf(out, "  %s        — uncommitted changes in working tree\n", colors.Colorize("✗", colors.Yellow, useColor))
+	fmt.Fprintf(out, "  %s — last commit time (local)\n", colors.Colorize("(YYYY-MM-DD HH:mm)", colors.Orange, useColor))
+	fmt.Fprintf(out, "  %s — last commit hash (local)\n", colors.Colorize("<hash>", colors.Blue, useColor))
+	fmt.Fprintf(out, "  %s        — uncommitted changes to tracked files\n", colors.Colorize("✗", colors.Yellow, useColor))
+	fmt.Fprintf(out, "  %s        — untracked files in working tree\n", colors.Colorize("●", colors.Gray, useColor))
 	return 0
 }
