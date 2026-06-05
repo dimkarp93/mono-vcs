@@ -71,9 +71,9 @@ func header(w io.Writer, label string, repos []string) {
 func Pull(w io.Writer, a *app.Args, repos []string) {
 	branch := a.GetMainBranch()
 	header(w, "pull", repos)
-	fmt.Fprintf(w, "  Условие: если локальный `%s` отличается от origin/%s\n", branch, branch)
+	fmt.Fprintf(w, "  Условие: если репозиторий на ветке `%s` и локальный `%s` отличается от origin/%s\n", branch, branch, branch)
 	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
-	fmt.Fprintln(w, "  Иначе: пропустить (уже синхронизирован, либо нет в GitLab)")
+	fmt.Fprintf(w, "  Иначе: пропустить (другая ветка, уже синхронизирован, либо нет в GitLab)\n")
 }
 
 func UpdateMain(w io.Writer, a *app.Args, repos []string) {

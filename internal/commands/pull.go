@@ -13,6 +13,9 @@ import (
 )
 
 func classifyForPull(p *gitlab.Project, localPath, glURL, token, branch string) string {
+	if cur := gitops.CurrentBranch(localPath); cur != "" && cur != branch {
+		return "feature"
+	}
 	if p == nil {
 		return "red"
 	}
@@ -81,7 +84,7 @@ func Pull(ctx *app.Context) int {
 	}
 	wg.Wait()
 
-	var yellow, green, red []string
+	var yellow, green, red, feature []string
 	for _, p := range local {
 		switch colorOf[p] {
 		case "yellow":
@@ -90,6 +93,8 @@ func Pull(ctx *app.Context) int {
 			green = append(green, p)
 		case "red":
 			red = append(red, p)
+		case "feature":
+			feature = append(feature, p)
 		}
 	}
 	if len(green) > 0 {
@@ -97,6 +102,9 @@ func Pull(ctx *app.Context) int {
 	}
 	if len(red) > 0 {
 		fmt.Fprintf(out, "  skipping %d red repo(s) — not visible in GitLab, nothing to pull from\n", len(red))
+	}
+	if len(feature) > 0 {
+		fmt.Fprintf(out, "  skipping %d repo(s) — not on `%s` branch\n", len(feature), branch)
 	}
 	if len(yellow) == 0 {
 		fmt.Fprintln(out, "nothing to pull")

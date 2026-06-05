@@ -64,6 +64,45 @@ func TestPullRunsOnlyOnYellow(t *testing.T) {
 	}
 }
 
+func TestPullSkipsFeatureBranch(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	remotes := t.TempDir()
+	seed := filepath.Join(remotes, "y.git")
+	testutil.InitRepo(t, seed, true, "main")
+
+	local := filepath.Join(ws, "alpha", "p")
+	testutil.Run(t, ws, "git", "clone", seed, local)
+	testutil.Run(t, local, "git", "config", "user.email", "a@b")
+	testutil.Run(t, local, "git", "config", "user.name", "a")
+	testutil.Commit(t, local, "init", "f", "x")
+	testutil.Run(t, local, "git", "push", "-u", "origin", "main")
+
+	side := filepath.Join(remotes, "side")
+	testutil.Run(t, remotes, "git", "clone", seed, side)
+	testutil.Run(t, side, "git", "config", "user.email", "a@b")
+	testutil.Run(t, side, "git", "config", "user.name", "a")
+	testutil.Commit(t, side, "advance", "g", "y")
+	testutil.Run(t, side, "git", "push", "origin", "main")
+	remoteSHA := headSHA(t, side)
+
+	testutil.Run(t, local, "git", "checkout", "-b", "feature")
+
+	id := fake.AddProject("alpha/p", "")
+	fake.SetBranchSHA(id, "main", remoteSHA)
+
+	ctx, out, _ := newCtx(pullArgs(fake), "")
+	if rc := commands.Pull(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "not on `main` branch")
+	contains(t, out.String(), "nothing to pull")
+	if exists(filepath.Join(local, "g")) {
+		t.Fatal("expected no pull on feature branch")
+	}
+}
+
 func TestPullDryRunSkipsNetwork(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
