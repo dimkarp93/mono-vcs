@@ -47,8 +47,9 @@ func TestSubcommandsRegistered(t *testing.T) {
 		got[k] = true
 	}
 	want := map[string]bool{
-		"list": true, "clone": true, "pull": true, "update-main": true,
-		"stash": true, "unstash": true, "clear-stash": true, "history-stash": true,
+		"list": true, "clone": true, "pull": true, "update": true,
+		"default-branch": true,
+		"stash":          true, "unstash": true, "clear-stash": true, "history-stash": true,
 		"prune": true, "features": true, "do": true, "switch": true,
 		"cancel": true, "new": true, "init": true,
 	}
@@ -131,15 +132,15 @@ func TestListRequestsToken(t *testing.T) {
 	}
 }
 
-func TestUpdateMainTokenOptional(t *testing.T) {
+func TestUpdateTokenOptional(t *testing.T) {
 	r, c := newRunner(t)
-	r.Commands["update-main"] = c.handler
+	r.Commands["update"] = c.handler
 	gotOptional := false
 	r.TokenFunc = func(optional bool) (string, error) {
 		gotOptional = optional
 		return "", nil
 	}
-	r.Run([]string{"update-main"})
+	r.Run([]string{"update"})
 	if !gotOptional || c.args.GLToken != "" {
 		t.Fatalf("optional=%v token=%q", gotOptional, c.args.GLToken)
 	}
@@ -230,6 +231,26 @@ func TestSwitchDryRunSkipsToken(t *testing.T) {
 	r.Commands["switch"] = c.handler
 	r.TokenFunc = func(bool) (string, error) { t.Fatal("token should not be asked"); return "", nil }
 	if rc := r.Run([]string{"switch", "feature", "--dry-run"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+}
+
+func TestSwitchWithoutBranchIsAllowed(t *testing.T) {
+	r, c := newRunner(t)
+	r.Commands["switch"] = c.handler
+	r.TokenFunc = func(bool) (string, error) { return "", nil }
+	if rc := r.Run([]string{"switch"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if c.args.Branch != "" {
+		t.Fatalf("branch=%q", c.args.Branch)
+	}
+}
+
+func TestCancelStillRequiresBranch(t *testing.T) {
+	r, c := newRunner(t)
+	r.Commands["cancel"] = c.handler
+	if rc := r.Run([]string{"cancel"}); rc != 2 {
 		t.Fatalf("rc=%d", rc)
 	}
 }

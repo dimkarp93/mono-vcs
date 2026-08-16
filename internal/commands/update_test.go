@@ -6,6 +6,7 @@ import (
 
 	"mono-vcs/internal/app"
 	"mono-vcs/internal/commands"
+	"mono-vcs/internal/gitops"
 	"mono-vcs/internal/testutil"
 )
 
@@ -13,25 +14,25 @@ func updateArgs() *app.Args {
 	return &app.Args{Jobs: testutil.I(1), MainBranch: testutil.S("main"), GLToken: ""}
 }
 
-func TestUpdateMainDirtyIsBlocked(t *testing.T) {
+func TestUpdateDirtyIsBlocked(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	p := placeLinked(t, ws, "p")
 	writeFile(p, "README", "dirty")
 	ctx, _, errb := newCtx(updateArgs(), "")
-	if rc := commands.UpdateMain(ctx); rc != 1 {
+	if rc := commands.Update(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
 	contains(t, errb.String(), "ERROR")
 	contains(t, errb.String(), "uncommitted")
 }
 
-func TestUpdateMainAlreadyOnMainReturnsZero(t *testing.T) {
+func TestUpdateAlreadyOnMainReturnsZero(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	placeLinked(t, ws, "p")
 	ctx, out, _ := newCtx(updateArgs(), "")
-	if rc := commands.UpdateMain(ctx); rc != 0 {
+	if rc := commands.Update(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
 	o := out.String()
@@ -40,27 +41,46 @@ func TestUpdateMainAlreadyOnMainReturnsZero(t *testing.T) {
 	}
 }
 
-func TestUpdateMainFeatureTriggersRebase(t *testing.T) {
+func TestUpdateFeatureTriggersRebase(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	p := placeLinked(t, ws, "p")
 	testutil.Run(t, p, "git", "checkout", "-b", "feature")
 	ctx, out, _ := newCtx(updateArgs(), "")
-	if rc := commands.UpdateMain(ctx); rc != 0 {
+	if rc := commands.Update(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
 	contains(t, out.String(), "rebasing 1 feature branch")
 }
 
-func TestUpdateMainDryRunDoesNotTouch(t *testing.T) {
+func TestUpdateDryRunDoesNotTouch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	placeLinked(t, ws, "p")
 	a := updateArgs()
 	a.DryRun = true
 	ctx, out, _ := newCtx(a, "")
-	if rc := commands.UpdateMain(ctx); rc != 0 {
+	if rc := commands.Update(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
-	contains(t, out.String(), "DRY-RUN: update-main")
+	contains(t, out.String(), "DRY-RUN: update")
+}
+
+func TestUpdateUsesPerRepoDefaultBranch(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	p := testutil.MakeRepo(t, ws, "p", "master")
+	testutil.MakeRemote(t, t.TempDir(), p, "master")
+	testutil.Run(t, p, "git", "checkout", "-b", "feature")
+
+	ctx, out, _ := newCtx(updateArgs(), "")
+	if rc := commands.Update(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	o := out.String()
+	contains(t, o, "[master]")
+	contains(t, o, "rebase onto master")
+	if got := gitops.CurrentBranch(p); got != "feature" {
+		t.Fatalf("branch=%q", got)
+	}
 }

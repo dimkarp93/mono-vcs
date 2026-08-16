@@ -34,21 +34,22 @@ func New(stdin io.Reader, stdout, stderr io.Writer) *Runner {
 
 func DefaultCommands() map[string]Handler {
 	return map[string]Handler{
-		"list":          commands.List,
-		"clone":         commands.Clone,
-		"pull":          commands.Pull,
-		"update-main":   commands.UpdateMain,
-		"stash":         commands.Stash,
-		"unstash":       commands.Unstash,
-		"clear-stash":   commands.ClearStash,
-		"history-stash": commands.HistoryStash,
-		"prune":         commands.Prune,
-		"features":      commands.Features,
-		"do":            commands.Do,
-		"switch":        commands.Switch,
-		"cancel":        commands.Cancel,
-		"new":           commands.New,
-		"init":          commands.Init,
+		"list":           commands.List,
+		"default-branch": commands.DefaultBranch,
+		"clone":          commands.Clone,
+		"pull":           commands.Pull,
+		"update":         commands.Update,
+		"stash":          commands.Stash,
+		"unstash":        commands.Unstash,
+		"clear-stash":    commands.ClearStash,
+		"history-stash":  commands.HistoryStash,
+		"prune":          commands.Prune,
+		"features":       commands.Features,
+		"do":             commands.Do,
+		"switch":         commands.Switch,
+		"cancel":         commands.Cancel,
+		"new":            commands.New,
+		"init":           commands.Init,
 	}
 }
 
@@ -64,14 +65,14 @@ func has(set []string, s string) bool {
 }
 
 var (
-	jobsCommands = []string{"list", "clone", "pull", "update-main", "stash",
-		"unstash", "switch", "clear-stash", "cancel", "new", "prune"}
+	jobsCommands = []string{"list", "clone", "pull", "update", "stash",
+		"unstash", "switch", "clear-stash", "cancel", "new", "prune", "default-branch"}
 	glURLCommands = []string{"list", "clone", "pull"}
 )
 
 var positionalArgs = map[string]string{
 	"new":    "<feat-name>",
-	"switch": "<branch>",
+	"switch": "[branch]",
 	"cancel": "<branch>",
 	"do":     "<command>...",
 }
@@ -111,7 +112,7 @@ func (r *Runner) Run(argv []string) int {
 			return 1
 		}
 		a.GLToken = tok
-	case a.Command == "update-main" || a.Command == "switch" || a.Command == "cancel":
+	case a.Command == "update" || a.Command == "switch" || a.Command == "cancel":
 		if a.DryRun {
 			a.GLToken = ""
 		} else {
@@ -181,7 +182,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		mainBranch()
 		repo()
 		dryRun()
-	case "update-main":
+	case "update":
 		jobs()
 		mainBranch()
 		repo()
@@ -191,6 +192,10 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		repo()
 		dryRun()
 	case "history-stash":
+		repo()
+	case "default-branch":
+		jobs()
+		mainBranch()
 		repo()
 	case "prune":
 		jobs()
@@ -230,9 +235,12 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 			return nil, err
 		}
 		if len(pos) < 1 {
-			return nil, errors.New("branch is required")
+			if cmd != "switch" {
+				return nil, errors.New("branch is required")
+			}
+		} else {
+			a.Branch = pos[0]
 		}
-		a.Branch = pos[0]
 	case "do":
 
 		if err := fs.Parse(argv[1:]); err != nil {
@@ -284,7 +292,7 @@ var commandGroups = []commandGroup{
 	{
 		"Repositories",
 		"clone and sync the raw git clones and their working trees",
-		[]string{"clone", "pull", "update-main", "list", "stash", "unstash", "clear-stash", "history-stash", "prune"},
+		[]string{"clone", "pull", "update", "list", "default-branch", "stash", "unstash", "clear-stash", "history-stash", "prune"},
 	},
 	{
 		"Shell delegation",
@@ -299,22 +307,23 @@ var commandGroups = []commandGroup{
 }
 
 var commandSummaries = map[string]string{
-	"features":      "list feature branches across repos",
-	"new":           "create a feature branch off main in every repo (local only)",
-	"switch":        "switch every repo to a branch",
-	"cancel":        "delete a feature branch and return to main",
-	"clone":         "clone every GitLab project locally",
-	"pull":          "fast-forward main against GitLab",
-	"update-main":   "update main and rebase feature branches onto it",
-	"list":          "show the status of every repo",
-	"stash":         "stash uncommitted changes in each repo",
-	"unstash":       "pop the most recent stash in each repo",
-	"clear-stash":   "drop stashed changes in each repo",
-	"history-stash": "show stash entries per repo",
-	"prune":         "discard uncommitted working-tree changes",
-	"do":            "run a shell command in every repo",
-	"init":          "create or update the config file",
-	"help":          "show this help",
+	"features":       "list feature branches across repos",
+	"new":            "create a feature branch off the default branch in every repo (local only)",
+	"switch":         "switch every repo to a branch (default branch when omitted)",
+	"cancel":         "delete a feature branch and return to the default branch",
+	"clone":          "clone every GitLab project locally",
+	"default-branch": "show the detected default branch of every repo",
+	"pull":           "fast-forward the default branch against GitLab",
+	"update":         "update the default branch and rebase feature branches onto it",
+	"list":           "show the status of every repo",
+	"stash":          "stash uncommitted changes in each repo",
+	"unstash":        "pop the most recent stash in each repo",
+	"clear-stash":    "drop stashed changes in each repo",
+	"history-stash":  "show stash entries per repo",
+	"prune":          "discard uncommitted working-tree changes",
+	"do":             "run a shell command in every repo",
+	"init":           "create or update the config file",
+	"help":           "show this help",
 }
 
 func commandLabel(n string) string {

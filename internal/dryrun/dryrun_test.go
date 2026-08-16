@@ -33,13 +33,13 @@ func render(f func(*bytes.Buffer)) string {
 func TestDryPull(t *testing.T) {
 	out := render(func(b *bytes.Buffer) { Pull(b, ns(), []string{"a", "b"}) })
 	expectHeader(t, out, "pull", 2)
-	mustContain(t, out, "pull --ff-only --quiet", "main")
+	mustContain(t, out, "pull --ff-only --quiet", "<default-branch>")
 }
 
-func TestDryUpdateMain(t *testing.T) {
-	out := render(func(b *bytes.Buffer) { UpdateMain(b, ns(), []string{"a"}) })
-	expectHeader(t, out, "update-main", 1)
-	mustContain(t, out, "checkout main", "rebase main", "незакоммиченные")
+func TestDryUpdate(t *testing.T) {
+	out := render(func(b *bytes.Buffer) { Update(b, ns(), []string{"a"}) })
+	expectHeader(t, out, "update", 1)
+	mustContain(t, out, "checkout <default-branch>", "rebase <default-branch>", "незакоммиченные")
 }
 
 func TestDryStash(t *testing.T) {
@@ -65,7 +65,13 @@ func TestDrySwitch(t *testing.T) {
 	a.Branch = "feature"
 	out := render(func(b *bytes.Buffer) { Switch(b, a, []string{"a"}) })
 	expectHeader(t, out, "switch feature", 1)
-	mustContain(t, out, "checkout feature", "checkout main")
+	mustContain(t, out, "checkout feature", "checkout <default-branch>")
+}
+
+func TestDrySwitchWithoutBranch(t *testing.T) {
+	out := render(func(b *bytes.Buffer) { Switch(b, ns(), []string{"a"}) })
+	expectHeader(t, out, "switch", 1)
+	mustContain(t, out, "checkout <default-branch>")
 }
 
 func TestDryCancel(t *testing.T) {
@@ -73,7 +79,7 @@ func TestDryCancel(t *testing.T) {
 	a.Branch = "feature"
 	out := render(func(b *bytes.Buffer) { Cancel(b, a, []string{"a"}) })
 	expectHeader(t, out, "cancel feature", 1)
-	mustContain(t, out, "branch -D feature", "checkout main")
+	mustContain(t, out, "branch -D feature", "checkout <default-branch>")
 }
 
 func TestDryDo(t *testing.T) {

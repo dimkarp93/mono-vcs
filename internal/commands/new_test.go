@@ -27,14 +27,15 @@ func TestNewCreatesLocalBranch(t *testing.T) {
 	}
 }
 
-func TestNewRefusesMain(t *testing.T) {
+func TestNewSkipsDefaultBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	testutil.MakeRepo(t, ws, "p", "main")
-	ctx, _, _ := newCtx(newArgs("main"), "")
-	if rc := commands.New(ctx); rc != 1 {
+	ctx, out, _ := newCtx(newArgs("main"), "")
+	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
+	contains(t, out.String(), "is-default: 1")
 }
 
 func TestNewExistingIsNotError(t *testing.T) {

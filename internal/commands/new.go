@@ -19,11 +19,7 @@ func New(ctx *app.Context) int {
 		return 1
 	}
 	branch := a.Branch
-	main := a.GetMainBranch()
-	if branch == main {
-		output.Die(ctx.Stderr, fmt.Sprintf("refusing to create `%s` — it is the configured main branch", branch))
-		return 1
-	}
+	fallback := a.GetMainBranch()
 
 	local := selectLocal(ctx)
 	if len(local) == 0 {
@@ -36,7 +32,7 @@ func New(ctx *app.Context) int {
 	}
 
 	jobs := a.GetJobs()
-	fmt.Fprintf(out, "creating `%s` from `%s` (local only) in %d repo(s) (jobs=%d)\n", branch, main, len(local), jobs)
+	fmt.Fprintf(out, "creating `%s` from the default branch (local only) in %d repo(s) (jobs=%d)\n", branch, len(local), jobs)
 
 	results := make(chan gitops.Result, len(local))
 	sem := make(chan struct{}, jobs)
@@ -47,12 +43,17 @@ func New(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			main, _ := gitops.DefaultBranch(p, fallback)
+			if branch == main {
+				results <- gitops.Result{Path: p, Status: "default"}
+				return
+			}
 			results <- gitops.NewBranchOne(p, branch, main)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
 
-	created, exists, absent := 0, 0, 0
+	created, exists, absent, isDefault := 0, 0, 0, 0
 	var dirty []string
 	var failed [][2]string
 	done, total := 0, len(local)
@@ -67,7 +68,10 @@ func New(ctx *app.Context) int {
 			fmt.Fprintf(out, "[%d/%d] exists     %s — already has `%s`\n", done, total, res.Path, branch)
 		case "absent":
 			absent++
-			fmt.Fprintf(out, "[%d/%d] absent     %s — no local `%s` to base on\n", done, total, res.Path, main)
+			fmt.Fprintf(out, "[%d/%d] absent     %s — no local default branch to base on\n", done, total, res.Path)
+		case "default":
+			isDefault++
+			fmt.Fprintf(out, "[%d/%d] default    %s — `%s` is the default branch here\n", done, total, res.Path, branch)
 		case "dirty":
 			dirty = append(dirty, res.Path)
 		default:
@@ -76,8 +80,8 @@ func New(ctx *app.Context) int {
 	}
 
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "created: %d, already exists: %d, absent: %d, dirty: %d, failed: %d\n",
-		created, exists, absent, len(dirty), len(failed))
+	fmt.Fprintf(out, "created: %d, already exists: %d, absent: %d, is-default: %d, dirty: %d, failed: %d\n",
+		created, exists, absent, isDefault, len(dirty), len(failed))
 	if len(dirty) > 0 {
 		sort.Strings(dirty)
 		fmt.Fprintf(ctx.Stderr, "\nskipped due to uncommitted changes (%d):\n", len(dirty))

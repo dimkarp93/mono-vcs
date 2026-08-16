@@ -13,14 +13,15 @@ func cancelArgs(branch string) *app.Args {
 	return &app.Args{Branch: branch, Jobs: testutil.I(1), MainBranch: testutil.S("main"), GLToken: ""}
 }
 
-func TestCancelRefusesMain(t *testing.T) {
+func TestCancelSkipsDefaultBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	placeLinked(t, ws, "p")
-	ctx, _, _ := newCtx(cancelArgs("main"), "")
-	if rc := commands.Cancel(ctx); rc != 1 {
+	ctx, out, _ := newCtx(cancelArgs("main"), "")
+	if rc := commands.Cancel(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
+	contains(t, out.String(), "is-default: 1")
 }
 
 func TestCancelAbsentSilent(t *testing.T) {

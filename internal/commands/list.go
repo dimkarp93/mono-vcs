@@ -65,22 +65,36 @@ func List(ctx *app.Context) int {
 
 	both := sortedSet(intersect(remote, local))
 	haveGit := hasGit()
-	branch := a.GetMainBranch()
+	fallback := a.GetMainBranch()
 	jobs := a.GetJobs()
 
 	inSync := map[string]int{}
 	info := map[string]localInfo{}
+	defaultOf := map[string]string{}
 	if haveGit {
 		var mu sync.Mutex
 		sem := make(chan struct{}, jobs)
 		var wg sync.WaitGroup
+		for path := range local {
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(path string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				b, _ := gitops.DefaultBranch(path, fallback)
+				mu.Lock()
+				defaultOf[path] = b
+				mu.Unlock()
+			}(path)
+		}
+		wg.Wait()
 		for _, path := range both {
 			wg.Add(1)
 			sem <- struct{}{}
 			go func(path string) {
 				defer wg.Done()
 				defer func() { <-sem }()
-				v, known := mainInSync(projectsByPath[path], path, a.GetGLURL(), a.GLToken, branch)
+				v, known := mainInSync(projectsByPath[path], path, a.GetGLURL(), a.GLToken, defaultOf[path])
 				code := -1
 				if known {
 					if v {
@@ -118,7 +132,7 @@ func List(ctx *app.Context) int {
 		inRemote := remote[path]
 		inLocal := local[path]
 		ci := info[path]
-		onFeature := ci.branch != "" && ci.branch != branch
+		onFeature := ci.branch != "" && ci.branch != defaultOf[path]
 		if a.Dirty && inLocal && ci.dirty {
 			return true
 		}
@@ -174,7 +188,7 @@ func List(ctx *app.Context) int {
 			cur = ci.branch
 			dirty = ci.dirty
 		}
-		onFeature := cur != "" && cur != branch
+		onFeature := cur != "" && cur != defaultOf[path]
 		var line string
 		switch {
 		case inRemote && inLocal:
@@ -210,7 +224,7 @@ func List(ctx *app.Context) int {
 		fmt.Fprintf(out, "(stripped common top-level group: %s/)\n", prefix)
 	}
 	if len(both) > 0 && !haveGit {
-		fmt.Fprintf(out, "(git not found in PATH — skipped `%s` sync check)\n", branch)
+		fmt.Fprintln(out, "(git not found in PATH — skipped the default-branch sync check)")
 	}
 	if !a.All {
 		flags := []struct {
@@ -233,9 +247,9 @@ func List(ctx *app.Context) int {
 		fmt.Fprintf(out, "(active filter(s): %s; pass --all to see everything)\n", strings.Join(active, ", "))
 	}
 	fmt.Fprintln(out, "legend:")
-	fmt.Fprintf(out, "  %s  — local & remote, local `%s` matches remote\n", colors.Colorize("green", colors.Green, useColor), branch)
-	fmt.Fprintf(out, "  %s — local & remote, local `%s` differs from remote (likely behind)\n", colors.Colorize("yellow", colors.Yellow, useColor), branch)
-	fmt.Fprintf(out, "  %s   — local repo currently on a non-`%s` branch (a feature branch)\n", colors.Colorize("blue", colors.Blue, useColor), branch)
+	fmt.Fprintf(out, "  %s  — local & remote, local default branch matches remote\n", colors.Colorize("green", colors.Green, useColor))
+	fmt.Fprintf(out, "  %s — local & remote, local default branch differs from remote (likely behind)\n", colors.Colorize("yellow", colors.Yellow, useColor))
+	fmt.Fprintf(out, "  %s   — local repo currently on a feature branch (not its default branch)\n", colors.Colorize("blue", colors.Blue, useColor))
 	fmt.Fprintf(out, "  %s    — local only\n", colors.Colorize("red", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote only\n", colors.Colorize("gray", colors.Gray, useColor))
 	fmt.Fprintf(out, "  %s — current branch of local repo\n", colors.Colorize("[branch]", colors.Red, useColor))

@@ -55,9 +55,9 @@ func Pull(ctx *app.Context) int {
 		byPath[repos.StripPrefix(p.PathWithNamespace, prefix)] = p
 	}
 
-	branch := a.GetMainBranch()
+	fallback := a.GetMainBranch()
 	jobs := a.GetJobs()
-	fmt.Fprintf(out, "checking `%s` status of %d local repo(s) against GitLab...\n", branch, len(local))
+	fmt.Fprintf(out, "checking the default branch of %d local repo(s) against GitLab...\n", len(local))
 
 	colorOf := map[string]string{}
 	var mu sync.Mutex
@@ -73,6 +73,7 @@ func Pull(ctx *app.Context) int {
 			if pr, ok := byPath[p]; ok {
 				proj = &pr
 			}
+			branch, _ := gitops.DefaultBranch(p, fallback)
 			c := classifyForPull(proj, p, a.GetGLURL(), a.GLToken, branch)
 			mu.Lock()
 			colorOf[p] = c
@@ -93,7 +94,7 @@ func Pull(ctx *app.Context) int {
 		}
 	}
 	if len(green) > 0 {
-		fmt.Fprintf(out, "  skipping %d green repo(s) — local `%s` already matches remote\n", len(green), branch)
+		fmt.Fprintf(out, "  skipping %d green repo(s) — the local default branch already matches remote\n", len(green))
 	}
 	if len(red) > 0 {
 		fmt.Fprintf(out, "  skipping %d red repo(s) — not visible in GitLab, nothing to pull from\n", len(red))
