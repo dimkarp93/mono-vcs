@@ -30,8 +30,16 @@ func Switch(ctx *app.Context) int {
 	}
 
 	jobs := a.GetJobs()
-	main := a.GetMainBranch()
-	fmt.Fprintf(out, "switching to `%s` (fallback: pull `%s`) in %d repo(s) (jobs=%d)\n", branch, main, len(local), jobs)
+	fallback := a.GetMainBranch()
+	label := "the default branch"
+	if branch != "" {
+		label = "`" + branch + "`"
+	}
+	if branch == "" {
+		fmt.Fprintf(out, "switching %d repo(s) to their default branch (jobs=%d)\n", len(local), jobs)
+	} else {
+		fmt.Fprintf(out, "switching to `%s` (fallback: pull the default branch) in %d repo(s) (jobs=%d)\n", branch, len(local), jobs)
+	}
 
 	results := make(chan gitops.Result, len(local))
 	sem := make(chan struct{}, jobs)
@@ -42,7 +50,12 @@ func Switch(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results <- gitops.SwitchOne(p, branch, main, a.GLToken)
+			main, _ := gitops.DefaultBranch(p, fallback)
+			target := branch
+			if target == "" {
+				target = main
+			}
+			results <- gitops.SwitchOne(p, target, main, a.GLToken)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
@@ -65,7 +78,7 @@ func Switch(ctx *app.Context) int {
 			fmt.Fprintf(out, "[%d/%d] main-sync  %s — %s\n", done, total, res.Path, res.Detail)
 		case "absent":
 			absent++
-			fmt.Fprintf(out, "[%d/%d] absent     %s — no `%s` and no `%s` to fall back to\n", done, total, res.Path, branch, main)
+			fmt.Fprintf(out, "[%d/%d] absent     %s — no %s to check out\n", done, total, res.Path, label)
 		case "dirty":
 			dirty = append(dirty, res.Path)
 		default:
@@ -74,11 +87,11 @@ func Switch(ctx *app.Context) int {
 	}
 
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "switched: %d, already on `%s`: %d, main-synced: %d, absent: %d, dirty: %d, failed: %d\n",
-		switched, branch, already, syncedMain, absent, len(dirty), len(failed))
+	fmt.Fprintf(out, "switched: %d, already on %s: %d, main-synced: %d, absent: %d, dirty: %d, failed: %d\n",
+		switched, label, already, syncedMain, absent, len(dirty), len(failed))
 	if len(dirty) > 0 {
 		sort.Strings(dirty)
-		fmt.Fprintf(ctx.Stderr, "\nskipped due to uncommitted/unstaged changes — could not switch to `%s` or sync `%s` (%d):\n", branch, main, len(dirty))
+		fmt.Fprintf(ctx.Stderr, "\nskipped due to uncommitted/unstaged changes — could not switch to %s (%d):\n", label, len(dirty))
 		for _, p := range dirty {
 			fmt.Fprintf(ctx.Stderr, "  %s\n", p)
 		}

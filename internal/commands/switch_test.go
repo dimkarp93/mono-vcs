@@ -73,3 +73,26 @@ func indexed(s, sub string) bool {
 	}
 	return false
 }
+
+func TestSwitchWithoutBranchGoesToDefaultPerRepo(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := testutil.MakeRepo(t, ws, "a", "main")
+	testutil.MakeRemote(t, t.TempDir(), a, "main")
+	b := testutil.MakeRepo(t, ws, "b", "master")
+	testutil.MakeRemote(t, t.TempDir(), b, "master")
+	testutil.Run(t, a, "git", "checkout", "-b", "feature")
+	testutil.Run(t, b, "git", "checkout", "-b", "feature")
+
+	ctx, out, _ := newCtx(switchArgs(""), "")
+	if rc := commands.Switch(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "their default branch")
+	if got := gitops.CurrentBranch(a); got != "main" {
+		t.Fatalf("a branch=%q", got)
+	}
+	if got := gitops.CurrentBranch(b); got != "master" {
+		t.Fatalf("b branch=%q", got)
+	}
+}

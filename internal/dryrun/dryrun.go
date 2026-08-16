@@ -69,25 +69,25 @@ func header(w io.Writer, label string, repos []string) {
 }
 
 func Pull(w io.Writer, a *app.Args, repos []string) {
-	branch := a.GetMainBranch()
 	header(w, "pull", repos)
-	fmt.Fprintf(w, "  Условие: если локальный `%s` отличается от origin/%s\n", branch, branch)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
+	fmt.Fprintln(w, "  Условие: если локальный <default-branch> отличается от origin/<default-branch>")
 	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
 	fmt.Fprintln(w, "  Иначе: пропустить (уже синхронизирован, либо нет в GitLab)")
 }
 
-func UpdateMain(w io.Writer, a *app.Args, repos []string) {
-	branch := a.GetMainBranch()
-	header(w, "update-main", repos)
+func Update(w io.Writer, a *app.Args, repos []string) {
+	header(w, "update", repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
 	fmt.Fprintln(w, "  Условие: если в репозитории есть незакоммиченные изменения "+
 		"(staged / unstaged / untracked) — пропустить с ошибкой.")
 	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintf(w, "    Условие: если текущая ветка ≠ `%s`\n", branch)
-	fmt.Fprintf(w, "      git -C <repo-name> checkout %s\n", branch)
+	fmt.Fprintln(w, "    Условие: если текущая ветка ≠ <default-branch>")
+	fmt.Fprintln(w, "      git -C <repo-name> checkout <default-branch>")
 	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
 	fmt.Fprintln(w, "    Условие: если на входе была другая ветка <orig>")
 	fmt.Fprintln(w, "      git -C <repo-name> checkout <orig>")
-	fmt.Fprintf(w, "      git -C <repo-name> rebase %s   # при конфликте остановится для ручного разрешения\n", branch)
+	fmt.Fprintln(w, "      git -C <repo-name> rebase <default-branch>   # при конфликте остановится для ручного разрешения")
 }
 
 func Stash(w io.Writer, a *app.Args, repos []string) {
@@ -126,38 +126,44 @@ func Prune(w io.Writer, a *app.Args, repos []string) {
 
 func New(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
-	main := a.GetMainBranch()
 	header(w, "new "+branch, repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
 	fmt.Fprintln(w, "  Условие: если есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
+	fmt.Fprintf(w, "  Условие: если `%s` — дефолтная ветка репозитория — пропустить (default).\n", branch)
 	fmt.Fprintf(w, "  Условие: если ветка `%s` уже существует локально — пропустить (exists).\n", branch)
-	fmt.Fprintf(w, "  Условие: если нет локальной `%s` — пропустить (absent).\n", main)
+	fmt.Fprintln(w, "  Условие: если нет локальной <default-branch> — пропустить (absent).")
 	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintf(w, "    git -C <repo-name> checkout -b %s %s   # создаётся только локально, без push\n", branch, main)
+	fmt.Fprintf(w, "    git -C <repo-name> checkout -b %s <default-branch>   # создаётся только локально, без push\n", branch)
 }
 
 func Switch(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
-	main := a.GetMainBranch()
-	header(w, "switch "+branch, repos)
+	label := "<default-branch>"
+	if branch != "" {
+		label = branch
+	}
+	header(w, strings.TrimSpace("switch "+branch), repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
 	fmt.Fprintln(w, "  Условие: если в репозитории есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
 	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintf(w, "    Условие: если ветка `%s` существует (локально или origin/%s)\n", branch, branch)
-	fmt.Fprintf(w, "      git -C <repo-name> checkout %s   # если ещё не на ней\n", branch)
-	fmt.Fprintf(w, "    Иначе (фоллбэк — освежить `%s`, чтобы воркспейс был синхронен по фиче):\n", main)
-	fmt.Fprintf(w, "      git -C <repo-name> checkout %s   # если текущая ветка ≠ `%s`\n", main, main)
+	fmt.Fprintf(w, "    Условие: если ветка %s существует (локально или origin/%s)\n", label, label)
+	fmt.Fprintf(w, "      git -C <repo-name> checkout %s   # если ещё не на ней\n", label)
+	fmt.Fprintln(w, "    Иначе (фоллбэк — освежить <default-branch>, чтобы воркспейс был синхронен по фиче):")
+	fmt.Fprintln(w, "      git -C <repo-name> checkout <default-branch>   # если текущая ветка ≠ <default-branch>")
 	fmt.Fprintln(w, "      git -C <repo-name> pull --ff-only --quiet")
 }
 
 func Cancel(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
-	main := a.GetMainBranch()
 	header(w, "cancel "+branch, repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
+	fmt.Fprintf(w, "  Условие: если `%s` — дефолтная ветка репозитория — пропустить (default).\n", branch)
 	fmt.Fprintf(w, "  Условие: если локальной ветки `%s` нет — пропустить молча.\n", branch)
 	fmt.Fprintln(w, "  Иначе:")
 	fmt.Fprintf(w, "    Условие: если `%s` — текущая ветка\n", branch)
 	fmt.Fprintln(w, "      Условие: если есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
 	fmt.Fprintln(w, "      Иначе:")
-	fmt.Fprintf(w, "        git -C <repo-name> checkout %s\n", main)
+	fmt.Fprintln(w, "        git -C <repo-name> checkout <default-branch>")
 	fmt.Fprintln(w, "        git -C <repo-name> pull --ff-only --quiet")
 	fmt.Fprintf(w, "    git -C <repo-name> branch -D %s\n", branch)
 }

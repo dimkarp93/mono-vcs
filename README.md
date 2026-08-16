@@ -82,6 +82,22 @@ git commit -am "release X.Y.Z" && git push   # мерж в main запускае
 }
 ```
 
+`main-branch` — **только фолбэк**. Дефолтная ветка определяется по каждому
+репозиторию отдельно, так что одна установка спокойно работает с воркспейсом,
+где часть репо на `main`, а часть на `master`.
+
+## Дефолтная ветка
+
+Все команды, которым нужна главная ветка (`update`, `pull`, `switch`, `new`,
+`cancel`, `features`, `list`), берут её из самого репозитория, в таком порядке:
+
+1. `git symbolic-ref refs/remotes/origin/HEAD` (то, что выставляет `git clone`);
+2. первая существующая из `origin/main`, `origin/master`, `origin/develop`;
+3. первая существующая из локальных `main`, `master`, `develop`;
+4. значение `main-branch` из конфига или `--main-branch`, иначе `main`.
+
+Обращений к сети при этом нет. Посмотреть, что получилось, — `mono-vcs default-branch`.
+
 ## Примеры запуска
 
 ```bash
@@ -89,11 +105,13 @@ mono-vcs init                                   # настроить ~/.config/m
 mono-vcs list --all                             # все репозитории с цветовой разметкой
 mono-vcs clone                                  # gl-url берётся из конфига
 mono-vcs pull --dry-run                         # показать план без действий
-mono-vcs update-main                            # подтянуть main, ребейзнуть фичи
+mono-vcs update                                 # подтянуть дефолтную ветку, ребейзнуть фичи
+mono-vcs default-branch                         # какая дефолтная ветка у каждого репо
 mono-vcs stash ; mono-vcs unstash
 mono-vcs features                               # таблица фиче-веток
-mono-vcs new MVPAY-290 -repo apigateway,payments  # создать ветку от main (локально)
+mono-vcs new MVPAY-290 -repo apigateway,payments  # создать ветку от дефолтной (локально)
 mono-vcs switch my-feature                      # переключить все репо
+mono-vcs switch                                 # вернуть все репо на их дефолтную ветку
 mono-vcs do git status -s                       # выполнить команду в каждом репо
 mono-vcs do -feat MVPAY-290 git status -s       # только репо, где есть ветка MVPAY-290
 ```

@@ -12,7 +12,7 @@ import (
 	"mono-vcs/internal/output"
 )
 
-func UpdateMain(ctx *app.Context) int {
+func Update(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
 	if !hasGit() {
@@ -25,16 +25,17 @@ func UpdateMain(ctx *app.Context) int {
 		return 0
 	}
 	if a.DryRun {
-		dryrun.UpdateMain(out, a, local)
+		dryrun.Update(out, a, local)
 		return 0
 	}
 
-	branch := a.GetMainBranch()
-	fmt.Fprintf(out, "updating `%s` in %d repos (jobs=%d)\n", branch, len(local), a.GetJobs())
+	fallback := a.GetMainBranch()
+	fmt.Fprintf(out, "updating the default branch in %d repos (jobs=%d)\n", len(local), a.GetJobs())
 
 	type umResult struct {
-		res  gitops.Result
-		orig string
+		res    gitops.Result
+		orig   string
+		branch string
 	}
 	results := make(chan umResult, len(local))
 	sem := make(chan struct{}, a.GetJobs())
@@ -45,14 +46,15 @@ func UpdateMain(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			branch, _ := gitops.DefaultBranch(p, fallback)
 			r, orig := gitops.UpdateMainOne(p, a.GLToken, branch)
-			results <- umResult{r, orig}
+			results <- umResult{r, orig, branch}
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
 
 	failures, blocked, done, total := 0, 0, 0, len(local)
-	var toRebase [][2]string
+	var toRebase [][3]string
 	for r := range results {
 		done++
 		switch r.res.Status {
@@ -63,9 +65,9 @@ func UpdateMain(ctx *app.Context) int {
 			blocked++
 			fmt.Fprintf(ctx.Stderr, "[%d/%d] ERROR      %s: %s\n", done, total, r.res.Path, r.res.Detail)
 		default:
-			fmt.Fprintf(out, "[%d/%d] %-10s %s\n", done, total, r.res.Status, r.res.Path)
+			fmt.Fprintf(out, "[%d/%d] %-10s %s [%s]\n", done, total, r.res.Status, r.res.Path, r.branch)
 			if r.orig != "" {
-				toRebase = append(toRebase, [2]string{r.res.Path, r.orig})
+				toRebase = append(toRebase, [3]string{r.res.Path, r.orig, r.branch})
 			}
 		}
 	}
@@ -73,9 +75,9 @@ func UpdateMain(ctx *app.Context) int {
 	var conflicts []string
 	if len(toRebase) > 0 {
 		sort.Slice(toRebase, func(i, j int) bool { return toRebase[i][0] < toRebase[j][0] })
-		fmt.Fprintf(out, "\nrebasing %d feature branch(es) onto `%s`\n", len(toRebase), branch)
+		fmt.Fprintf(out, "\nrebasing %d feature branch(es) onto the default branch\n", len(toRebase))
 		for _, pr := range toRebase {
-			path, orig := pr[0], pr[1]
+			path, orig, branch := pr[0], pr[1], pr[2]
 			fmt.Fprintf(out, "  → %s: checkout %s + rebase onto %s\n", path, orig, branch)
 			status, detail := gitops.RebaseOne(path, orig, branch, ctx.Stdin, out, ctx.Stderr)
 			switch status {

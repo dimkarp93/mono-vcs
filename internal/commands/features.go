@@ -23,7 +23,7 @@ func Features(ctx *app.Context) int {
 		return 0
 	}
 
-	main := a.GetMainBranch()
+	fallback := a.GetMainBranch()
 	branchesByName := map[string][]string{}
 	activeByName := map[string]map[string]bool{}
 	for _, p := range local {
@@ -32,6 +32,7 @@ func Features(ctx *app.Context) int {
 			fmt.Fprintf(ctx.Stderr, "warning: %s: failed to list branches — %s\n", p, err.Error())
 			continue
 		}
+		main, _ := gitops.DefaultBranch(p, fallback)
 		cur := gitops.CurrentBranch(p)
 		for _, b := range branches {
 			if b == "" || b == main {
@@ -48,7 +49,7 @@ func Features(ctx *app.Context) int {
 	}
 
 	if len(branchesByName) == 0 {
-		fmt.Fprintf(out, "no feature branches found (every local repo only has `%s`)\n", main)
+		fmt.Fprintln(out, "no feature branches found (every local repo only has its default branch)")
 		return 0
 	}
 
