@@ -61,40 +61,6 @@ func TestScanEmptyDir(t *testing.T) {
 	}
 }
 
-func TestCommonTopGroup(t *testing.T) {
-	cases := []struct {
-		in   []string
-		want string
-	}{
-		{[]string{"a/b", "a/c"}, "a"},
-		{[]string{"a/b/c", "a/c/d"}, "a"},
-		{[]string{"a/b", "x/y"}, ""},
-		{[]string{"a", "a/b"}, "a"},
-		{[]string{"a", "b"}, ""},
-		{nil, ""},
-	}
-	for _, c := range cases {
-		if got := CommonTopGroup(c.in); got != c.want {
-			t.Errorf("CommonTopGroup(%v)=%q want %q", c.in, got, c.want)
-		}
-	}
-}
-
-func TestStripPrefix(t *testing.T) {
-	cases := []struct{ path, prefix, want string }{
-		{"a/b/c", "a", "b/c"},
-		{"a/b/c", "a/b", "c"},
-		{"x/y", "a", "x/y"},
-		{"a/b", "", "a/b"},
-		{"ab/c", "a", "ab/c"},
-	}
-	for _, c := range cases {
-		if got := StripPrefix(c.path, c.prefix); got != c.want {
-			t.Errorf("StripPrefix(%q,%q)=%q want %q", c.path, c.prefix, got, c.want)
-		}
-	}
-}
-
 func TestFilterNoneIsPassthrough(t *testing.T) {
 	got := FilterRepos([]string{"a/b", "c"}, nil, nw())
 	if !reflect.DeepEqual(got, []string{"a/b", "c"}) {
@@ -159,6 +125,20 @@ func TestFilterDedupsAndSorts(t *testing.T) {
 func TestFilterFullPathMatchesExactly(t *testing.T) {
 	got := FilterRepos([]string{"a/b/repo", "x/repo", "repo"}, []string{"a/b/repo"}, nw())
 	if !reflect.DeepEqual(got, []string{"a/b/repo"}) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestFilterFullPathMatchesBySuffix(t *testing.T) {
+	got := FilterRepos([]string{"mono/backend/api", "mono/libs/api"}, []string{"backend/api"}, nw())
+	if !reflect.DeepEqual(got, []string{"mono/backend/api"}) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestFilterSuffixRespectsSegmentBoundary(t *testing.T) {
+	got := FilterRepos([]string{"mono/xbackend/api"}, []string{"backend/api"}, nw())
+	if len(got) != 0 {
 		t.Fatalf("got %v", got)
 	}
 }

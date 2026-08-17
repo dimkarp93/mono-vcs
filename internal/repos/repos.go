@@ -38,33 +38,6 @@ func ScanLocalRepos(root string) map[string]bool {
 	return found
 }
 
-func CommonTopGroup(remotePaths []string) string {
-	tops := map[string]bool{}
-	for _, p := range remotePaths {
-		if i := strings.Index(p, "/"); i >= 0 {
-			tops[p[:i]] = true
-		}
-	}
-	if len(tops) != 1 {
-		return ""
-	}
-	for k := range tops {
-		return k
-	}
-	return ""
-}
-
-func StripPrefix(path, prefix string) string {
-	if prefix == "" {
-		return path
-	}
-	head := prefix + "/"
-	if strings.HasPrefix(path, head) {
-		return path[len(head):]
-	}
-	return path
-}
-
 func matchesGroup(repoPath, group string) bool {
 	parts := strings.Split(repoPath, "/")
 	parent := strings.Join(parts[:len(parts)-1], "/")
@@ -105,11 +78,9 @@ func FilterRepos(local []string, names []string, stderr io.Writer) []string {
 	}
 
 	byName := map[string][]string{}
-	localSet := map[string]bool{}
 	for _, p := range local {
 		b := filepath.Base(p)
 		byName[b] = append(byName[b], p)
-		localSet[p] = true
 	}
 
 	matched := map[string]bool{}
@@ -126,9 +97,11 @@ func FilterRepos(local []string, names []string, stderr io.Writer) []string {
 		}
 	}
 	for _, fp := range paths {
-		if localSet[fp] {
-			matched[fp] = true
-			matchedPaths[fp] = true
+		for _, p := range local {
+			if p == fp || strings.HasSuffix(p, "/"+fp) {
+				matched[p] = true
+				matchedPaths[fp] = true
+			}
 		}
 	}
 	for _, g := range groups {
