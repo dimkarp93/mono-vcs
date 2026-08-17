@@ -17,8 +17,6 @@ jobs:
 
       - name: Read version
         id: ver
-        env:
-          BIN_NAME: ${{ vars.BIN_NAME }}
         run: |
           if [ ! -f versions.txt ]; then
             echo "versions.txt не найден" >&2
@@ -29,9 +27,7 @@ jobs:
             echo "versions.txt должен содержать semver X.Y.Z (получено: '$v')" >&2
             exit 1
           fi
-          # Repo name (mvpy-vcs) differs from the binary name (mono-vcs); allow a
-          # BIN_NAME repo variable to override, defaulting to mono-vcs.
-          bin="${BIN_NAME:-mono-vcs}"
+          bin="${{ github.event.repository.name }}"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "tag=v$v"    >> "$GITHUB_OUTPUT"
           echo "bin=$bin"   >> "$GITHUB_OUTPUT"

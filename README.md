@@ -42,13 +42,12 @@ make dist     # -> dist/mono-vcs-{linux,darwin}-{amd64,arm64}.tar.gz + dist/SHA2
 Дистрибуция — **только бинарь**. Никаких дополнительных файлов не требуется:
 конфиг создаётся в рантайме командой `mono-vcs init`, а `git` у клиента уже есть.
 
-Рекомендуемый способ — универсальный установщик (репозиторий — `<owner>/mvpy-vcs`,
-бинарь — `mono-vcs`):
+Рекомендуемый способ — универсальный установщик (репозиторий — `<owner>/mono-vcs`,
+имя бинаря совпадает с именем репозитория — `mono-vcs`):
 
 ```bash
-github_install.sh <owner>/mvpy-vcs            # имя бинаря mono-vcs определится из ассета
-github_install.sh <owner>/mvpy-vcs mono-vcs   # или явно
-github_install.sh -u <owner>/mvpy-vcs         # обновить, только если есть новее
+github_install.sh <owner>/mono-vcs            # имя бинаря mono-vcs определится из ассета
+github_install.sh -u <owner>/mono-vcs         # обновить, только если есть новее
 ```
 
 Установщик скачивает `mono-vcs-<os>-<arch>.tar.gz`, проверяет `SHA256SUMS` и
