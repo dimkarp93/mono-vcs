@@ -27,6 +27,21 @@ func TestPullNothingWhenAllGreen(t *testing.T) {
 	contains(t, out.String(), "nothing to pull")
 }
 
+func TestPullMatchesFullNamespacePathForSingleGroup(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	makeSyncedPair(t, ws, fake, "mono/a")
+	makeSyncedPair(t, ws, fake, "mono/b")
+
+	ctx, out, _ := newCtx(pullArgs(fake), "")
+	if rc := commands.Pull(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "skipping 2 green repo(s)")
+	notContains(t, out.String(), "red repo(s)")
+}
+
 func TestPullRunsOnlyOnYellow(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)

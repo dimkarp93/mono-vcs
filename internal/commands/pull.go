@@ -9,7 +9,6 @@ import (
 	"mono-vcs/internal/gitlab"
 	"mono-vcs/internal/gitops"
 	"mono-vcs/internal/output"
-	"mono-vcs/internal/repos"
 )
 
 func classifyForPull(p *gitlab.Project, localPath, glURL, token, branch string) string {
@@ -45,14 +44,9 @@ func Pull(ctx *app.Context) int {
 		output.Die(ctx.Stderr, err.Error())
 		return 1
 	}
-	allPaths := make([]string, 0, len(projects))
-	for _, p := range projects {
-		allPaths = append(allPaths, p.PathWithNamespace)
-	}
-	prefix := repos.CommonTopGroup(allPaths)
 	byPath := map[string]gitlab.Project{}
 	for _, p := range projects {
-		byPath[repos.StripPrefix(p.PathWithNamespace, prefix)] = p
+		byPath[p.PathWithNamespace] = p
 	}
 
 	fallback := a.GetMainBranch()

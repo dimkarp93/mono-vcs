@@ -103,7 +103,7 @@ func TestListDirtyMarker(t *testing.T) {
 	contains(t, out.String(), "✗")
 }
 
-func TestListCommonTopGroupStripped(t *testing.T) {
+func TestListUsesFullNamespacePath(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	fake := testutil.NewFakeGitLab(t)
@@ -114,7 +114,9 @@ func TestListCommonTopGroupStripped(t *testing.T) {
 	a.All = true
 	ctx, out, _ := newCtx(a, "")
 	commands.List(ctx)
-	contains(t, out.String(), "stripped common top-level group: mono/")
+	contains(t, out.String(), "mono/a")
+	contains(t, out.String(), "mono/b")
+	notContains(t, out.String(), "stripped common top-level group")
 }
 
 func TestListRepoFilter(t *testing.T) {

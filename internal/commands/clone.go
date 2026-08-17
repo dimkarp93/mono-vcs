@@ -31,20 +31,12 @@ func Clone(ctx *app.Context) int {
 		output.Die(ctx.Stderr, err.Error())
 		return 1
 	}
-	allPaths := make([]string, 0, len(projects))
-	for _, p := range projects {
-		allPaths = append(allPaths, p.PathWithNamespace)
-	}
-	prefix := repos.CommonTopGroup(allPaths)
 	local := repos.ScanLocalRepos(".")
-	if prefix != "" {
-		fmt.Fprintf(out, "stripping common top-level group: %s/\n", prefix)
-	}
 
 	var candidates []cloneCandidate
 	skipped := 0
 	for _, p := range projects {
-		target := repos.StripPrefix(p.PathWithNamespace, prefix)
+		target := p.PathWithNamespace
 		if local[target] {
 			skipped++
 			continue

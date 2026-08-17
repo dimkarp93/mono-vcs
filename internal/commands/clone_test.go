@@ -39,6 +39,26 @@ func TestCloneFresh(t *testing.T) {
 	}
 }
 
+func TestCloneKeepsFullNamespacePathForSingleGroup(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	remotes := t.TempDir()
+	fake := testutil.NewFakeGitLab(t)
+	fake.AddProject("mono/a", seedRemote(t, remotes, "a"))
+	fake.AddProject("mono/b", seedRemote(t, remotes, "b"))
+
+	ctx, _, _ := newCtx(cloneArgs(fake, 2), "")
+	if rc := commands.Clone(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if !exists(filepath.Join(ws, "mono", "a", ".git")) || !exists(filepath.Join(ws, "mono", "b", ".git")) {
+		t.Fatal("expected clones under mono/")
+	}
+	if exists(filepath.Join(ws, "a")) || exists(filepath.Join(ws, "b")) {
+		t.Fatal("expected no stripped top-level dirs")
+	}
+}
+
 func TestCloneSkipsExisting(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)

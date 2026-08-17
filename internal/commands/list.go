@@ -38,14 +38,9 @@ func List(ctx *app.Context) int {
 		output.Die(ctx.Stderr, err.Error())
 		return 1
 	}
-	allPaths := make([]string, 0, len(projects))
-	for _, p := range projects {
-		allPaths = append(allPaths, p.PathWithNamespace)
-	}
-	prefix := repos.CommonTopGroup(allPaths)
 	projectsByPath := map[string]gitlab.Project{}
 	for _, p := range projects {
-		projectsByPath[repos.StripPrefix(p.PathWithNamespace, prefix)] = p
+		projectsByPath[p.PathWithNamespace] = p
 	}
 	remote := map[string]bool{}
 	for k := range projectsByPath {
@@ -220,9 +215,6 @@ func List(ctx *app.Context) int {
 	}
 
 	fmt.Fprintln(out)
-	if prefix != "" {
-		fmt.Fprintf(out, "(stripped common top-level group: %s/)\n", prefix)
-	}
 	if len(both) > 0 && !haveGit {
 		fmt.Fprintln(out, "(git not found in PATH — skipped the default-branch sync check)")
 	}
