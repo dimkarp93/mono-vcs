@@ -3,10 +3,12 @@ package dryrun
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
@@ -111,5 +113,51 @@ func mustContain(t *testing.T, out string, subs ...string) {
 		if !strings.Contains(out, s) {
 			t.Fatalf("missing %q in:\n%s", s, out)
 		}
+	}
+}
+
+func tableLines(out string) []string {
+	var lines []string
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "┌") || strings.HasPrefix(l, "│") ||
+			strings.HasPrefix(l, "├") || strings.HasPrefix(l, "└") {
+			lines = append(lines, l)
+		}
+	}
+	return lines
+}
+
+func TestPrintTableFitsTerminal(t *testing.T) {
+	long := []string{}
+	for i := 0; i < 7; i++ {
+		long = append(long, fmt.Sprintf("группа/подгруппа/очень-длинный-репозиторий-%d", i))
+	}
+	for _, width := range []int{60, 100, 200} {
+		t.Setenv("COLUMNS", strconv.Itoa(width))
+		out := render(func(b *bytes.Buffer) { PrintTable(b, long, 6) })
+		lines := tableLines(out)
+		if len(lines) == 0 {
+			t.Fatalf("no table:\n%s", out)
+		}
+		want := output.DisplayWidth(lines[0])
+		if want > width {
+			t.Fatalf("width %d exceeds terminal %d:\n%s", want, width, out)
+		}
+		for _, l := range lines {
+			if w := output.DisplayWidth(l); w != want {
+				t.Fatalf("ragged line (%d != %d): %q\n%s", w, want, l, out)
+			}
+		}
+	}
+}
+
+func TestPrintTableColumnsAdaptToWidth(t *testing.T) {
+	repos := []string{"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "cccccccccccccccccccccccccccccc"}
+	t.Setenv("COLUMNS", "60")
+	narrow := tableLines(render(func(b *bytes.Buffer) { PrintTable(b, repos, 6) }))
+	t.Setenv("COLUMNS", "200")
+	wide := tableLines(render(func(b *bytes.Buffer) { PrintTable(b, repos, 6) }))
+	if !(len(narrow) > len(wide)) {
+		t.Fatalf("narrow terminal must produce more rows: %d vs %d", len(narrow), len(wide))
 	}
 }
