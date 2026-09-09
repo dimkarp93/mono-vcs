@@ -3,7 +3,7 @@ package gitops
 import (
 	"testing"
 
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func TestDefaultBranchFromOriginHead(t *testing.T) {

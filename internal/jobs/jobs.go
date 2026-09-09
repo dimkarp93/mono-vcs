@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"sync"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/output"
-	"mono-vcs/internal/repos"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/repos"
 )
 
 type Worker func(path string) gitops.Result

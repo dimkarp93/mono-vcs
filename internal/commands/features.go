@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sort"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/colors"
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/colors"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
 func Features(ctx *app.Context) int {

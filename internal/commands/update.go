@@ -5,11 +5,11 @@ import (
 	"sort"
 	"sync"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/colors"
-	"mono-vcs/internal/dryrun"
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/colors"
+	"github.com/dimkarp93/mono-vcs/internal/dryrun"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
 func Update(ctx *app.Context) int {

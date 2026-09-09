@@ -3,8 +3,8 @@ package commands_test
 import (
 	"testing"
 
-	"mono-vcs/internal/commands"
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/commands"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func TestDoFeatSelectsReposWithBranch(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
 )
 
 func mark(t *testing.T, dir, name string) {
