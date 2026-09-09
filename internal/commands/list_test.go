@@ -1,10 +1,12 @@
 package commands_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/commands"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
@@ -133,4 +135,63 @@ func TestListRepoFilter(t *testing.T) {
 	commands.List(ctx)
 	contains(t, out.String(), "libs/a")
 	notContains(t, out.String(), "tools/b")
+}
+
+func TestListAlignsBranchColumn(t *testing.T) {
+	t.Setenv("COLUMNS", "100")
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	short, _, _ := makeSyncedPair(t, ws, fake, "a/s")
+	long, _, _ := makeSyncedPair(t, ws, fake, "group/subgroup/much-longer-name")
+	testutil.Run(t, short, "git", "checkout", "-b", "feat")
+	testutil.Run(t, long, "git", "checkout", "-b", "feat")
+
+	a := listArgs(fake)
+	a.All = true
+	ctx, out, _ := newCtx(a, "")
+	commands.List(ctx)
+
+	var cols []int
+	for _, line := range strings.Split(out.String(), "\n") {
+		i := strings.Index(line, "[feat]")
+		if i < 0 {
+			continue
+		}
+		cols = append(cols, output.DisplayWidth(line[:i]))
+	}
+	if len(cols) != 2 {
+		t.Fatalf("expected 2 branch cells, got %d:\n%s", len(cols), out.String())
+	}
+	if cols[0] != cols[1] {
+		t.Fatalf("branch column not aligned: %d vs %d\n%s", cols[0], cols[1], out.String())
+	}
+}
+
+func TestListTruncatesOverlongPaths(t *testing.T) {
+	t.Setenv("COLUMNS", "60")
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	name := "группа/подгруппа/очень-длинное-имя-репозитория-не-влезающее-в-строку"
+	makeSyncedPair(t, ws, fake, name)
+
+	a := listArgs(fake)
+	a.All = true
+	ctx, out, _ := newCtx(a, "")
+	commands.List(ctx)
+
+	for _, line := range strings.Split(out.String(), "\n") {
+		if !strings.HasPrefix(line, "группа/") {
+			continue
+		}
+		if w := output.DisplayWidth(line); w > 60 {
+			t.Fatalf("line too wide (%d): %q", w, line)
+		}
+		if !strings.Contains(line, "…") {
+			t.Fatalf("expected an ellipsis in %q", line)
+		}
+		return
+	}
+	t.Fatalf("repo line not found:\n%s", out.String())
 }

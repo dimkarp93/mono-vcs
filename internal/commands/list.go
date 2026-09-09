@@ -28,6 +28,33 @@ func mainInSync(p gitlab.Project, localPath, glURL, token, branch string) (bool,
 	return remoteSHA == localSHA, true
 }
 
+func listColumns(paths []string, local map[string]bool, info map[string]localInfo, width int) (int, int) {
+	pathW, branchW := 0, 0
+	for _, path := range paths {
+		if l := output.DisplayWidth(path); l > pathW {
+			pathW = l
+		}
+		if !local[path] {
+			continue
+		}
+		if b := info[path].branch; b != "" {
+			if l := output.DisplayWidth(b) + 2; l > branchW {
+				branchW = l
+			}
+		}
+	}
+	if limit := width / 3; branchW > limit {
+		branchW = limit
+	}
+	if limit := width - branchW - 4; pathW > limit {
+		pathW = limit
+	}
+	if pathW < 1 {
+		pathW = 1
+	}
+	return pathW, branchW
+}
+
 func List(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
@@ -173,6 +200,8 @@ func List(ctx *app.Context) int {
 		paths = filtered
 	}
 
+	pathW, branchW := listColumns(paths, local, info, output.Width(out))
+
 	for _, path := range paths {
 		inRemote := remote[path]
 		inLocal := local[path]
@@ -184,34 +213,37 @@ func List(ctx *app.Context) int {
 			dirty = ci.dirty
 		}
 		onFeature := cur != "" && cur != defaultOf[path]
-		var line string
+		color := colors.Gray
 		switch {
 		case inRemote && inLocal:
-			color := colors.Green
+			color = colors.Green
 			if onFeature {
 				color = colors.Blue
 			} else if v, ok := inSync[path]; ok && v == 0 {
 				color = colors.Yellow
 			}
-			line = colors.Colorize(path, color, useColor)
 		case inLocal:
-			color := colors.Red
+			color = colors.Red
 			if onFeature {
 				color = colors.Blue
 			}
-			line = colors.Colorize(path, color, useColor)
-		default:
-			line = colors.Colorize(path, colors.Gray, useColor)
 		}
-		if inLocal {
+		name := output.Truncate(path, pathW)
+		line := output.PadColored(name, colors.Colorize(name, color, useColor), pathW)
+		if inLocal && branchW > 0 {
+			cell := ""
 			if cur != "" {
-				line += " " + colors.Colorize("["+cur+"]", colors.Red, useColor)
+				b := output.Truncate("["+cur+"]", branchW)
+				cell = output.PadColored(b, colors.Colorize(b, colors.Red, useColor), branchW)
+			} else {
+				cell = strings.Repeat(" ", branchW)
 			}
-			if dirty {
-				line += " " + colors.Colorize("✗", colors.Yellow, useColor)
-			}
+			line += " " + cell
 		}
-		fmt.Fprintln(out, line)
+		if inLocal && dirty {
+			line += " " + colors.Colorize("✗", colors.Yellow, useColor)
+		}
+		fmt.Fprintln(out, strings.TrimRight(line, " "))
 	}
 
 	fmt.Fprintln(out)

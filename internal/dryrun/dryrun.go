@@ -4,21 +4,39 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
-func PrintTable(w io.Writer, repos []string, cols int) {
+func PrintTable(w io.Writer, repos []string, maxCols int) {
 	if len(repos) == 0 {
 		return
 	}
+	if maxCols < 1 {
+		maxCols = 1
+	}
+	width := output.Width(w)
 	cell := 0
 	for _, p := range repos {
-		if l := utf8.RuneCountInString(p); l > cell {
+		if l := output.DisplayWidth(p); l > cell {
 			cell = l
 		}
 	}
+	if limit := width - 4; cell > limit {
+		cell = limit
+	}
+	if cell < 1 {
+		cell = 1
+	}
+	cols := (width - 1) / (cell + 3)
+	if cols > maxCols {
+		cols = maxCols
+	}
+	if cols < 1 {
+		cols = 1
+	}
+
 	bar := strings.Repeat("─", cell+2)
 	bars := make([]string, cols)
 	for i := range bars {
@@ -45,7 +63,7 @@ func PrintTable(w io.Writer, repos []string, cols int) {
 	for i, row := range rows {
 		cells := make([]string, len(row))
 		for j, c := range row {
-			cells[j] = ljust(c, cell)
+			cells[j] = output.Cell(c, cell)
 		}
 		fmt.Fprintf(w, "│ %s │\n", strings.Join(cells, " │ "))
 		if i < len(rows)-1 {
@@ -53,13 +71,6 @@ func PrintTable(w io.Writer, repos []string, cols int) {
 		}
 	}
 	fmt.Fprintln(w, bot)
-}
-
-func ljust(s string, n int) string {
-	if w := utf8.RuneCountInString(s); w < n {
-		return s + strings.Repeat(" ", n-w)
-	}
-	return s
 }
 
 func header(w io.Writer, label string, repos []string) {
