@@ -3,8 +3,8 @@ package gitops_test
 import (
 	"testing"
 
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func TestNewBranchCreatesFromMain(t *testing.T) {

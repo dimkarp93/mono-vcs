@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/commands"
-	"mono-vcs/internal/config"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/commands"
+	"github.com/dimkarp93/mono-vcs/internal/config"
 )
 
 func TestInitCreatesConfig(t *testing.T) {

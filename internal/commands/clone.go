@@ -5,12 +5,12 @@ import (
 	"os"
 	"sync"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/gitlab"
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/output"
-	"mono-vcs/internal/prompts"
-	"mono-vcs/internal/repos"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/gitlab"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/prompts"
+	"github.com/dimkarp93/mono-vcs/internal/repos"
 )
 
 type cloneCandidate struct {

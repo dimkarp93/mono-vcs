@@ -1,18 +1,33 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
-	"mono-vcs/internal/cli"
+	"github.com/dimkarp93/install-libs/buildinfo"
+	"github.com/dimkarp93/mono-vcs/internal/cli"
 )
 
-var version = "dev"
+var (
+	version  string
+	origin   string
+	upstream string
+	commit   string
+	channel  string
+)
+
+func build() buildinfo.Info {
+	return buildinfo.Info{
+		Version:  version,
+		Origin:   origin,
+		Upstream: upstream,
+		Commit:   commit,
+		Channel:  channel,
+	}
+}
 
 func main() {
 	args := os.Args[1:]
-	if len(args) > 0 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version") {
-		fmt.Println(version)
+	if build().Handle(args) {
 		return
 	}
 	os.Exit(cli.New(os.Stdin, os.Stdout, os.Stderr).Run(args))

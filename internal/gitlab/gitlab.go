@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"mono-vcs/internal/config"
+	"github.com/dimkarp93/mono-vcs/internal/config"
 )
 
 type Project struct {

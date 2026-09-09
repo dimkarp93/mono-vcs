@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"mono-vcs/internal/colors"
+	"github.com/dimkarp93/mono-vcs/internal/colors"
 )
 
 func Die(stderr io.Writer, msg string) {
