@@ -7,9 +7,9 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
 func DefaultBranch(ctx *app.Context) int {

@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/commands"
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/commands"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func updateArgs() *app.Args {

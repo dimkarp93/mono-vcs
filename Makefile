@@ -10,10 +10,9 @@ DIST        := dist
 GO          ?= go
 # Bare semver shared with the release workflow and embedded into the binary.
 VERSION     := $(shell tr -d '[:space:]' < versions.txt 2>/dev/null)
-LDFLAGS     := -s -w -X main.version=$(VERSION)
 # Fully static, reproducible builds for client distribution.
 BUILD_ENV   := CGO_ENABLED=0
-BUILD_FLAGS := -trimpath -ldflags="$(LDFLAGS)"
+CHANNEL     ?= local
 # Platforms shipped to GitHub Releases (must match install.sh expectations).
 PLATFORMS   := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 # Pass arguments to `make run`, e.g.  make run ARGS='list --all'
@@ -41,7 +40,18 @@ help:
 ## build: compile the static binary into ./$(BINARY)
 .PHONY: build
 build:
-	$(BUILD_ENV) $(GO) build $(BUILD_FLAGS) -o $(BINARY) $(PKG)
+	@u=$$(git remote get-url origin 2>/dev/null || true); \
+	case "$$u" in \
+	  "")    o=local ;; \
+	  *://*) h=$${u#*://}; h=$${h#*@}; o="https://$${h%.git}" ;; \
+	  *:*)   h=$${u#*@};   o="https://$$(printf '%s' "$${h%.git}" | tr ':' '/')" ;; \
+	  *)     o=local ;; \
+	esac; \
+	if [ -f upstream.txt ]; then up=$$(tr -d '[:space:]' < upstream.txt); else up="$$o"; fi; \
+	c=$$(git rev-parse --short HEAD 2>/dev/null || true); \
+	$(BUILD_ENV) $(GO) build -trimpath \
+	  -ldflags="-s -w -X main.version=$(VERSION) -X main.origin=$$o -X main.upstream=$$up -X main.commit=$$c -X main.channel=$(CHANNEL)" \
+	  -o $(BINARY) $(PKG)
 
 ## run: build then run the binary; pass flags via ARGS='...'
 .PHONY: run
@@ -86,12 +96,22 @@ install: build
 .PHONY: dist
 dist: clean
 	@mkdir -p $(DIST)
-	@for target in $(PLATFORMS); do \
+	@u=$$(git remote get-url origin 2>/dev/null || true); \
+	case "$$u" in \
+	  "")    o=local ;; \
+	  *://*) h=$${u#*://}; h=$${h#*@}; o="https://$${h%.git}" ;; \
+	  *:*)   h=$${u#*@};   o="https://$$(printf '%s' "$${h%.git}" | tr ':' '/')" ;; \
+	  *)     o=local ;; \
+	esac; \
+	if [ -f upstream.txt ]; then up=$$(tr -d '[:space:]' < upstream.txt); else up="$$o"; fi; \
+	c=$$(git rev-parse --short HEAD 2>/dev/null || true); \
+	ld="-s -w -X main.version=$(VERSION) -X main.origin=$$o -X main.upstream=$$up -X main.commit=$$c -X main.channel=$(CHANNEL)"; \
+	for target in $(PLATFORMS); do \
 	  os=$${target%/*}; arch=$${target#*/}; \
 	  name=$(BINARY)-$$os-$$arch; \
 	  tmp=$$(mktemp -d); \
 	  echo "building $$name"; \
-	  $(BUILD_ENV) GOOS=$$os GOARCH=$$arch $(GO) build $(BUILD_FLAGS) -o $$tmp/$(BINARY) $(PKG) || exit 1; \
+	  $(BUILD_ENV) GOOS=$$os GOARCH=$$arch $(GO) build -trimpath -ldflags="$$ld" -o $$tmp/$(BINARY) $(PKG) || exit 1; \
 	  tar -C $$tmp -czf $(DIST)/$$name.tar.gz $(BINARY); \
 	  rm -rf $$tmp; \
 	done

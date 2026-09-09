@@ -3,9 +3,9 @@ package commands_test
 import (
 	"testing"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/commands"
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/commands"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func doArgs(action ...string) *app.Args {

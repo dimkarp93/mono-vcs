@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/config"
-	"mono-vcs/internal/output"
-	"mono-vcs/internal/prompts"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/config"
+	"github.com/dimkarp93/mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/prompts"
 )
 
 func Init(ctx *app.Context) int {
