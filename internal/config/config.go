@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/app"
 )
 
 const (

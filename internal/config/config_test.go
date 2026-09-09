@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func pointTo(t *testing.T, path string) {

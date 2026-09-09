@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/app"
 )
 
 func PrintTable(w io.Writer, repos []string, cols int) {

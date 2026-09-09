@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"mono-vcs/internal/gitops"
-	"mono-vcs/internal/testutil"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
+	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func write(t *testing.T, repo, file, content string) {

@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"mono-vcs/internal/app"
-	"mono-vcs/internal/dryrun"
-	"mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/dryrun"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
 func Do(ctx *app.Context) int {
