@@ -3,25 +3,13 @@ package output
 import (
 	"fmt"
 	"io"
-	"os"
-	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/dimkarp93/mono-vcs/internal/colors"
 )
 
 func Die(stderr io.Writer, msg string) {
 	fmt.Fprintf(stderr, "error: %s\n", msg)
-}
-
-func termWidth() int {
-	if c := os.Getenv("COLUMNS"); c != "" {
-		if n, err := strconv.Atoi(c); err == nil && n > 0 {
-			return n
-		}
-	}
-	return 100
 }
 
 func WrapCSV(items []string, width int) []string {
@@ -35,8 +23,8 @@ func WrapCSV(items []string, width int) []string {
 		if i == len(items)-1 {
 			sep = ""
 		}
-		token := it + sep
-		if cur != "" && len(cur)+len(token) > width {
+		token := Truncate(it, width) + sep
+		if cur != "" && DisplayWidth(cur)+DisplayWidth(token) > width {
 			lines = append(lines, trimTrailingComma(cur))
 			cur = token
 		} else {
@@ -60,34 +48,39 @@ type FeatureRow struct {
 	Active []string
 }
 
-func ljust(s string, n int) string {
-	w := utf8.RuneCountInString(s)
-	if w >= n {
-		return s
+func featureColumns(total int, rows []FeatureRow) (int, int, int) {
+	const minCell = 8
+	avail := total - 10
+	branchW := DisplayWidth("branch")
+	for _, r := range rows {
+		if l := DisplayWidth(r.Branch); l > branchW {
+			branchW = l
+		}
 	}
-	return s + strings.Repeat(" ", n-w)
+	branchCap := avail * 3 / 10
+	if branchCap < DisplayWidth("branch") {
+		branchCap = DisplayWidth("branch")
+	}
+	if branchW > branchCap {
+		branchW = branchCap
+	}
+	if rest := avail - branchW; rest < 2*minCell {
+		branchW = avail - 2*minCell
+		if branchW < DisplayWidth("branch") {
+			branchW = DisplayWidth("branch")
+		}
+	}
+	rest := avail - branchW
+	if rest < 2 {
+		rest = 2
+	}
+	col2W := (rest + 1) / 2
+	return branchW, col2W, rest - col2W
 }
 
 func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 	col1Label, col2Label, col3Label := "branch", "repos", "active"
-	col1W := len(col1Label)
-	for _, r := range rows {
-		if l := utf8.RuneCountInString(r.Branch); l > col1W {
-			col1W = l
-		}
-	}
-	remaining := termWidth() - col1W - 10
-	if remaining < 40 {
-		remaining = 40
-	}
-	col2W := remaining / 2
-	if col2W < len(col2Label) {
-		col2W = len(col2Label)
-	}
-	col3W := remaining - col2W
-	if col3W < len(col3Label) {
-		col3W = len(col3Label)
-	}
+	col1W, col2W, col3W := featureColumns(Width(w), rows)
 
 	bar1 := strings.Repeat("─", col1W+2)
 	bar2 := strings.Repeat("─", col2W+2)
@@ -113,14 +106,13 @@ func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 		for i := 0; i < n; i++ {
 			lRaw := ""
 			if i == 0 {
-				lRaw = left
+				lRaw = Truncate(left, col1W)
 			}
-			lPadded := ljust(lRaw, col1W)
+			lPadded := Pad(lRaw, col1W)
 			if leftColor != "" && lRaw != "" {
-				lPadded = colors.Colorize(lRaw, leftColor, useColor) +
-					strings.Repeat(" ", col1W-utf8.RuneCountInString(lRaw))
+				lPadded = PadColored(lRaw, colors.Colorize(lRaw, leftColor, useColor), col1W)
 			}
-			fmt.Fprintf(w, "│ %s │ %s │ %s │\n", lPadded, ljust(midLines[i], col2W), ljust(rightLines[i], col3W))
+			fmt.Fprintf(w, "│ %s │ %s │ %s │\n", lPadded, Cell(midLines[i], col2W), Cell(rightLines[i], col3W))
 		}
 	}
 
