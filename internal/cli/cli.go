@@ -48,6 +48,7 @@ func DefaultCommands() map[string]Handler {
 		"switch":         commands.Switch,
 		"cancel":         commands.Cancel,
 		"new":            commands.New,
+		"mr":             commands.MR,
 		"init":           commands.Init,
 	}
 }
@@ -65,15 +66,16 @@ func has(set []string, s string) bool {
 
 var (
 	jobsCommands = []string{"list", "clone", "pull", "update", "stash",
-		"unstash", "switch", "clear-stash", "cancel", "new", "prune", "default-branch"}
+		"unstash", "switch", "clear-stash", "cancel", "new", "prune", "default-branch", "mr"}
 	glURLCommands = []string{"list", "clone", "pull", "update", "switch",
-		"cancel", "new", "features", "default-branch"}
+		"cancel", "new", "features", "default-branch", "mr"}
 )
 
 var positionalArgs = map[string]string{
 	"new":    "<feat-name>",
 	"switch": "[branch]",
 	"cancel": "<branch>",
+	"mr":     "[branch]",
 	"do":     "<command>...",
 }
 
@@ -112,7 +114,7 @@ func (r *Runner) Run(argv []string) int {
 			return 1
 		}
 		a.GLToken = tok
-	case a.Command == "update" || a.Command == "switch" || a.Command == "cancel":
+	case a.Command == "update" || a.Command == "switch" || a.Command == "cancel" || a.Command == "mr":
 		if a.DryRun {
 			a.GLToken = ""
 		} else {
@@ -215,18 +217,22 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		jobs()
 		repo()
 		dryRun()
+	case "mr":
+		jobs()
+		dryRun()
+		fs.StringVar(&a.Title, "title", "", "merge request title (passed as merge_request.title push option)")
 	case "init":
 	}
 
 	switch cmd {
-	case "switch", "cancel", "new":
+	case "switch", "cancel", "new", "mr":
 
 		pos, err := parseIntermixed(fs, argv[1:])
 		if err != nil {
 			return nil, err
 		}
 		if len(pos) < 1 {
-			if cmd != "switch" {
+			if cmd != "switch" && cmd != "mr" {
 				return nil, errors.New("branch is required")
 			}
 		} else {
@@ -275,7 +281,7 @@ var commandGroups = []commandGroup{
 	{
 		"Feature branches",
 		"create, switch, inspect and drop feature branches across every repo",
-		[]string{"features", "new", "switch", "cancel"},
+		[]string{"features", "new", "switch", "mr", "cancel"},
 	},
 	{
 		"Repositories",
@@ -298,6 +304,7 @@ var commandSummaries = map[string]string{
 	"features":       "list feature branches across repos",
 	"new":            "create a feature branch off the default branch in every repo (local only)",
 	"switch":         "switch every repo to a branch (default branch when omitted)",
+	"mr":             "push the feature branch everywhere it exists and open merge requests",
 	"cancel":         "delete a feature branch and return to the default branch",
 	"clone":          "clone every GitLab project locally",
 	"default-branch": "show the detected default branch of every repo",

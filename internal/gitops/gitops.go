@@ -406,3 +406,45 @@ func NewBranchOne(path, branch, mainBranch string) Result {
 	}
 	return Result{path, "created", ""}
 }
+
+func RemoteBranchSHA(path, branch string) string {
+	out, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+branch)
+	if rc != 0 {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
+
+func mergeRequestURL(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		for _, f := range strings.Fields(line) {
+			if strings.HasPrefix(f, "http") && strings.Contains(f, "/merge_requests/") {
+				return f
+			}
+		}
+	}
+	return ""
+}
+
+func PushMROne(path, branch, token, title string) Result {
+	local := LocalBranchSHA(path, branch)
+	if local == "" {
+		return Result{path, "failed", fmt.Sprintf("no local branch `%s`", branch)}
+	}
+	if local == RemoteBranchSHA(path, branch) {
+		return Result{path, "up-to-date", fmt.Sprintf("origin/%s already at %s", branch, shortSHA(local))}
+	}
+	args := []string{"-C", path}
+	args = append(args, GitExtraHeaderArgs(token)...)
+	args = append(args, "push", "-u", "origin", "refs/heads/"+branch+":refs/heads/"+branch,
+		"-o", "merge_request.create",
+		"-o", "merge_request.remove_source_branch")
+	if title != "" {
+		args = append(args, "-o", "merge_request.title="+title)
+	}
+	out, errOut, rc := runGit(args...)
+	if rc != 0 {
+		return Result{path, "failed", firstNonEmpty(errOut, out)}
+	}
+	return Result{path, "pushed", mergeRequestURL(out + "\n" + errOut)}
+}
