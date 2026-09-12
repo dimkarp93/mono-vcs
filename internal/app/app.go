@@ -17,6 +17,7 @@ type Args struct {
 	Yes     bool
 	Branch  string
 	Action  []string
+	Title   string
 
 	All        bool
 	Changed    bool
