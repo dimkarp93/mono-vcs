@@ -17,13 +17,16 @@ func writeFile(repo, name, content string) error {
 
 func placeLinked(t *testing.T, ws, name string) string {
 	t.Helper()
-	local := testutil.MakeRepo(t, ws, name, "main")
-	testutil.MakeRemote(t, t.TempDir(), local, "main")
+	local := testutil.MakeClonedRepo(t, ws, name, "main")
 	return local
 }
 
-func newCtx(args *app.Args, stdin string) (*app.Context, *bytes.Buffer, *bytes.Buffer) {
+func newCtx(t *testing.T, args *app.Args, stdin string) (*app.Context, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
 	var out, errb bytes.Buffer
+	if args.DBPath == nil {
+		args.DBPath = testutil.S(testutil.SeedStateFromRepos(t, "."))
+	}
 	return &app.Context{
 		Args:   args,
 		Stdin:  strings.NewReader(stdin),
@@ -39,7 +42,7 @@ func headSHA(t *testing.T, repo string) string {
 
 func makeSyncedPair(t *testing.T, ws string, fake *testutil.FakeGitLab, name string) (repo string, id int, sha string) {
 	t.Helper()
-	repo = testutil.MakeRepo(t, ws, name, "main")
+	repo = testutil.MakeClonedRepo(t, ws, name, "main")
 	sha = headSHA(t, repo)
 	id = fake.AddProject(name, "")
 	fake.SetBranchSHA(id, "main", sha)

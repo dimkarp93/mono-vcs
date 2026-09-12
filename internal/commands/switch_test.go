@@ -10,7 +10,7 @@ import (
 )
 
 func switchArgs(branch string) *app.Args {
-	return &app.Args{Branch: branch, Jobs: testutil.I(1), MainBranch: testutil.S("main"), GLToken: ""}
+	return &app.Args{Branch: branch, Jobs: testutil.I(1), GLToken: ""}
 }
 
 func TestSwitchExistingLocalBranch(t *testing.T) {
@@ -18,7 +18,7 @@ func TestSwitchExistingLocalBranch(t *testing.T) {
 	t.Chdir(ws)
 	p := placeLinked(t, ws, "p")
 	testutil.Run(t, p, "git", "branch", "feature")
-	ctx, out, _ := newCtx(switchArgs("feature"), "")
+	ctx, out, _ := newCtx(t, switchArgs("feature"), "")
 	if rc := commands.Switch(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -32,7 +32,7 @@ func TestSwitchAlreadyOnBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	placeLinked(t, ws, "p")
-	ctx, out, _ := newCtx(switchArgs("main"), "")
+	ctx, out, _ := newCtx(t, switchArgs("main"), "")
 	if rc := commands.Switch(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -44,7 +44,7 @@ func TestSwitchDirtyListed(t *testing.T) {
 	t.Chdir(ws)
 	p := placeLinked(t, ws, "p")
 	writeFile(p, "README", "dirty")
-	ctx, _, errb := newCtx(switchArgs("feature"), "")
+	ctx, _, errb := newCtx(t, switchArgs("feature"), "")
 	if rc := commands.Switch(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -58,7 +58,7 @@ func TestSwitchFallbackToMain(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	placeLinked(t, ws, "p")
-	ctx, out, _ := newCtx(switchArgs("no-such"), "")
+	ctx, out, _ := newCtx(t, switchArgs("no-such"), "")
 	if rc := commands.Switch(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -77,14 +77,12 @@ func indexed(s, sub string) bool {
 func TestSwitchWithoutBranchGoesToDefaultPerRepo(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	a := testutil.MakeRepo(t, ws, "a", "main")
-	testutil.MakeRemote(t, t.TempDir(), a, "main")
-	b := testutil.MakeRepo(t, ws, "b", "master")
-	testutil.MakeRemote(t, t.TempDir(), b, "master")
+	a := testutil.MakeClonedRepo(t, ws, "a", "main")
+	b := testutil.MakeClonedRepo(t, ws, "b", "master")
 	testutil.Run(t, a, "git", "checkout", "-b", "feature")
 	testutil.Run(t, b, "git", "checkout", "-b", "feature")
 
-	ctx, out, _ := newCtx(switchArgs(""), "")
+	ctx, out, _ := newCtx(t, switchArgs(""), "")
 	if rc := commands.Switch(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -95,4 +93,30 @@ func TestSwitchWithoutBranchGoesToDefaultPerRepo(t *testing.T) {
 	if got := gitops.CurrentBranch(b); got != "master" {
 		t.Fatalf("b branch=%q", got)
 	}
+}
+
+func TestSwitchToDefaultSkipsUnresolvedRepo(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	testutil.MakeRepo(t, ws, "orphan", "trunk")
+
+	ctx, out, errb := newCtx(t, switchArgs(""), "")
+	if rc := commands.Switch(ctx); rc != 1 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "unresolved: 1")
+	contains(t, errb.String(), "the default branch is unknown")
+}
+
+func TestSwitchToNamedBranchWorksWithoutOriginHead(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	repo := testutil.MakeRepo(t, ws, "orphan", "trunk")
+	testutil.Run(t, repo, "git", "branch", "feat")
+
+	ctx, out, _ := newCtx(t, switchArgs("feat"), "")
+	if rc := commands.Switch(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "switched")
 }

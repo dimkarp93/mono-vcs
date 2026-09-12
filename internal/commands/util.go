@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"fmt"
+	"io"
 	"os/exec"
 	"sort"
 )
@@ -8,6 +10,17 @@ import (
 func hasGit() bool {
 	_, err := exec.LookPath("git")
 	return err == nil
+}
+
+func reportUnresolved(w io.Writer, paths []string) {
+	if len(paths) == 0 {
+		return
+	}
+	sort.Strings(paths)
+	fmt.Fprintf(w, "\nskipped — %s (%d):\n", unresolvedDefaultBranch, len(paths))
+	for _, p := range paths {
+		fmt.Fprintf(w, "  %s\n", p)
+	}
 }
 
 func sortedSet(m map[string]bool) []string {

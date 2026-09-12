@@ -17,6 +17,7 @@ type Project struct {
 	ID                int    `json:"id"`
 	PathWithNamespace string `json:"path_with_namespace"`
 	HTTPURLToRepo     string `json:"http_url_to_repo"`
+	DefaultBranch     string `json:"default_branch"`
 }
 
 var client = &http.Client{Timeout: 30 * time.Second}

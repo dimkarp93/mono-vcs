@@ -133,7 +133,7 @@ func TestListRequestsToken(t *testing.T) {
 }
 
 func TestUpdateTokenOptional(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["update"] = c.handler
 	gotOptional := false
 	r.TokenFunc = func(optional bool) (string, error) {
@@ -182,7 +182,7 @@ func TestInitSkipsConfigAndToken(t *testing.T) {
 }
 
 func TestNewDoesNotRequestToken(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["new"] = c.handler
 	r.TokenFunc = func(bool) (string, error) { t.Fatal("token should not be asked"); return "", nil }
 	if rc := r.Run([]string{"new", "MVPAY-290"}); rc != 0 {
@@ -227,7 +227,7 @@ func TestFeatShorthandParses(t *testing.T) {
 }
 
 func TestSwitchDryRunSkipsToken(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["switch"] = c.handler
 	r.TokenFunc = func(bool) (string, error) { t.Fatal("token should not be asked"); return "", nil }
 	if rc := r.Run([]string{"switch", "feature", "--dry-run"}); rc != 0 {
@@ -236,7 +236,7 @@ func TestSwitchDryRunSkipsToken(t *testing.T) {
 }
 
 func TestSwitchWithoutBranchIsAllowed(t *testing.T) {
-	r, c := newRunner(t)
+	r, c := newRunnerWithGLURL(t)
 	r.Commands["switch"] = c.handler
 	r.TokenFunc = func(bool) (string, error) { return "", nil }
 	if rc := r.Run([]string{"switch"}); rc != 0 {

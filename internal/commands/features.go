@@ -11,7 +11,6 @@ import (
 )
 
 func Features(ctx *app.Context) int {
-	a := ctx.Args
 	out := ctx.Stdout
 	if !hasGit() {
 		output.Die(ctx.Stderr, "git not found in PATH")
@@ -23,7 +22,9 @@ func Features(ctx *app.Context) int {
 		return 0
 	}
 
-	fallback := a.GetMainBranch()
+	defs := resolveDefaults(ctx, local, nil)
+
+	var unresolved []string
 	branchesByName := map[string][]string{}
 	activeByName := map[string]map[string]bool{}
 	for _, p := range local {
@@ -32,7 +33,11 @@ func Features(ctx *app.Context) int {
 			fmt.Fprintf(ctx.Stderr, "warning: %s: failed to list branches — %s\n", p, err.Error())
 			continue
 		}
-		main, _ := gitops.DefaultBranch(p, fallback)
+		main, ok := defs.get(p)
+		if !ok {
+			unresolved = append(unresolved, p)
+			continue
+		}
 		cur := gitops.CurrentBranch(p)
 		for _, b := range branches {
 			if b == "" || b == main {
@@ -50,6 +55,10 @@ func Features(ctx *app.Context) int {
 
 	if len(branchesByName) == 0 {
 		fmt.Fprintln(out, "no feature branches found (every local repo only has its default branch)")
+		reportUnresolved(ctx.Stderr, unresolved)
+		if len(unresolved) > 0 {
+			return 1
+		}
 		return 0
 	}
 
@@ -72,5 +81,9 @@ func Features(ctx *app.Context) int {
 	}
 	output.PrintFeaturesTable(out, rows, colors.Enabled())
 	fmt.Fprintf(out, "\n%d feature branch(es) across %d repo(s)\n", len(rows), len(local))
+	if len(unresolved) > 0 {
+		reportUnresolved(ctx.Stderr, unresolved)
+		return 1
+	}
 	return 0
 }

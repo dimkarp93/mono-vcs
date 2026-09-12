@@ -18,7 +18,7 @@ func TestDoFeatSelectsReposWithBranch(t *testing.T) {
 
 	args := doArgs("pwd")
 	args.Feature = "feat-x"
-	ctx, out, _ := newCtx(args, "")
+	ctx, out, _ := newCtx(t, args, "")
 	if rc := commands.Do(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -34,7 +34,7 @@ func TestDoFeatNoMatchRunsNowhere(t *testing.T) {
 	testutil.MakeRepo(t, ws, "a", "main")
 	args := doArgs("pwd")
 	args.Feature = "absent-branch"
-	ctx, out, errb := newCtx(args, "")
+	ctx, out, errb := newCtx(t, args, "")
 	if rc := commands.Do(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}

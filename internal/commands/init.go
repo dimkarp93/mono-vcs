@@ -8,6 +8,7 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/config"
 	"github.com/dimkarp93/mono-vcs/internal/output"
 	"github.com/dimkarp93/mono-vcs/internal/prompts"
+	"github.com/dimkarp93/mono-vcs/internal/state"
 )
 
 func Init(ctx *app.Context) int {
@@ -47,16 +48,20 @@ func Init(ctx *app.Context) int {
 		return 1
 	}
 
-	mainBranch, err := pr.Choice("Main branch name", existing.MainBranch, config.MainBranchChoices, config.DefaultMainBranch)
+	dbCurrent := existing.DBPath
+	if dbCurrent == "" {
+		dbCurrent = state.DefaultPath()
+	}
+	dbPath, err := pr.Free("State db path", dbCurrent, true)
 	if err != nil {
 		output.Die(ctx.Stderr, err.Error())
 		return 1
 	}
 
 	if err := config.Save(config.Config{
-		GLURL:      glURL,
-		Jobs:       jobs,
-		MainBranch: mainBranch,
+		GLURL:  glURL,
+		Jobs:   jobs,
+		DBPath: dbPath,
 	}); err != nil {
 		output.Die(ctx.Stderr, err.Error())
 		return 1

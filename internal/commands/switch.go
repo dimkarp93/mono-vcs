@@ -29,8 +29,9 @@ func Switch(ctx *app.Context) int {
 		return 0
 	}
 
+	defs := resolveDefaults(ctx, local, nil)
+
 	jobs := a.GetJobs()
-	fallback := a.GetMainBranch()
 	label := "the default branch"
 	if branch != "" {
 		label = "`" + branch + "`"
@@ -50,9 +51,13 @@ func Switch(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			main, _ := gitops.DefaultBranch(p, fallback)
+			main, ok := defs.get(p)
 			target := branch
 			if target == "" {
+				if !ok {
+					results <- gitops.Result{Path: p, Status: "unresolved", Detail: unresolvedDefaultBranch}
+					return
+				}
 				target = main
 			}
 			results <- gitops.SwitchOne(p, target, main, a.GLToken)
@@ -60,6 +65,7 @@ func Switch(ctx *app.Context) int {
 	}
 	go func() { wg.Wait(); close(results) }()
 
+	var unresolved []string
 	var dirty []string
 	var failed [][2]string
 	switched, already, syncedMain, absent := 0, 0, 0, 0
@@ -79,6 +85,8 @@ func Switch(ctx *app.Context) int {
 		case "absent":
 			absent++
 			fmt.Fprintf(out, "[%d/%d] absent     %s — no %s to check out\n", done, total, res.Path, label)
+		case "unresolved":
+			unresolved = append(unresolved, res.Path)
 		case "dirty":
 			dirty = append(dirty, res.Path)
 		default:
@@ -87,8 +95,9 @@ func Switch(ctx *app.Context) int {
 	}
 
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "switched: %d, already on %s: %d, main-synced: %d, absent: %d, dirty: %d, failed: %d\n",
-		switched, label, already, syncedMain, absent, len(dirty), len(failed))
+	fmt.Fprintf(out, "switched: %d, already on %s: %d, main-synced: %d, absent: %d, unresolved: %d, dirty: %d, failed: %d\n",
+		switched, label, already, syncedMain, absent, len(unresolved), len(dirty), len(failed))
+	reportUnresolved(ctx.Stderr, unresolved)
 	if len(dirty) > 0 {
 		sort.Strings(dirty)
 		fmt.Fprintf(ctx.Stderr, "\nskipped due to uncommitted/unstaged changes — could not switch to %s (%d):\n", label, len(dirty))
@@ -103,7 +112,7 @@ func Switch(ctx *app.Context) int {
 			fmt.Fprintf(ctx.Stderr, "  %s: %s\n", f[0], f[1])
 		}
 	}
-	if len(dirty) > 0 || len(failed) > 0 {
+	if len(unresolved) > 0 || len(dirty) > 0 || len(failed) > 0 {
 		return 1
 	}
 	return 0

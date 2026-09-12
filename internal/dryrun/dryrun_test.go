@@ -9,11 +9,10 @@ import (
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/output"
-	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
 func ns() *app.Args {
-	return &app.Args{MainBranch: testutil.S("main")}
+	return &app.Args{}
 }
 
 func expectHeader(t *testing.T, out, label string, n int) {

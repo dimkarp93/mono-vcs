@@ -5,9 +5,9 @@ import "io"
 type Args struct {
 	Command string
 
-	GLURL      *string
-	Jobs       *int
-	MainBranch *string
+	GLURL  *string
+	Jobs   *int
+	DBPath *string
 
 	GLToken string
 
@@ -34,6 +34,13 @@ func (a *Args) GetGLURL() string {
 	return *a.GLURL
 }
 
+func (a *Args) GetDBPath() string {
+	if a.DBPath == nil {
+		return ""
+	}
+	return *a.DBPath
+}
+
 func (a *Args) GetJobs() int {
 	if a.Jobs == nil || *a.Jobs < 1 {
 		return 1
@@ -41,16 +48,10 @@ func (a *Args) GetJobs() int {
 	return *a.Jobs
 }
 
-func (a *Args) GetMainBranch() string {
-	if a.MainBranch == nil {
-		return ""
-	}
-	return *a.MainBranch
-}
-
 type Context struct {
-	Args   *Args
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Args      *Args
+	Stdin     io.Reader
+	Stdout    io.Writer
+	Stderr    io.Writer
+	TokenFunc func(optional bool) (string, error)
 }

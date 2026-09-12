@@ -10,19 +10,15 @@ import (
 	"path/filepath"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/state"
 )
 
-const (
-	PerPage           = 100
-	DefaultMainBranch = "main"
-)
-
-var MainBranchChoices = []string{"main", "master"}
+const PerPage = 100
 
 type Config struct {
-	GLURL      string `json:"gl-url,omitempty"`
-	Jobs       int    `json:"jobs,omitempty"`
-	MainBranch string `json:"main-branch,omitempty"`
+	GLURL  string `json:"gl-url,omitempty"`
+	Jobs   int    `json:"jobs,omitempty"`
+	DBPath string `json:"db-path,omitempty"`
 }
 
 var pathOverride string
@@ -92,12 +88,12 @@ func ApplyDefaults(a *app.Args) error {
 		}
 		a.Jobs = &j
 	}
-	if a.MainBranch == nil {
-		v := cfg.MainBranch
+	if a.DBPath == nil {
+		v := cfg.DBPath
 		if v == "" {
-			v = DefaultMainBranch
+			v = state.DefaultPath()
 		}
-		a.MainBranch = &v
+		a.DBPath = &v
 	}
 	return nil
 }

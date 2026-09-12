@@ -81,15 +81,20 @@ func header(w io.Writer, label string, repos []string) {
 
 func Pull(w io.Writer, a *app.Args, repos []string) {
 	header(w, "pull", repos)
-	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
-	fmt.Fprintln(w, "  Условие: если локальный <default-branch> отличается от origin/<default-branch>")
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
+	fmt.Fprintln(w, "  Рабочее дерево и текущая ветка не меняются.")
+	fmt.Fprintln(w, "  Условие: если текущая ветка = <default-branch>")
 	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
-	fmt.Fprintln(w, "  Иначе: пропустить (уже синхронизирован, либо нет в GitLab)")
+	fmt.Fprintln(w, "  Иначе:")
+	fmt.Fprintln(w, "    git -C <repo-name> fetch origin \\")
+	fmt.Fprintln(w, "      refs/heads/<default-branch>:refs/heads/<default-branch> \\")
+	fmt.Fprintln(w, "      +refs/heads/<default-branch>:refs/remotes/origin/<default-branch>")
+	fmt.Fprintln(w, "  При расхождении локальной <default-branch> с origin — пропустить с ошибкой (diverged).")
 }
 
 func Update(w io.Writer, a *app.Args, repos []string) {
 	header(w, "update", repos)
-	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
 	fmt.Fprintln(w, "  Условие: если в репозитории есть незакоммиченные изменения "+
 		"(staged / unstaged / untracked) — пропустить с ошибкой.")
 	fmt.Fprintln(w, "  Иначе:")
@@ -138,7 +143,7 @@ func Prune(w io.Writer, a *app.Args, repos []string) {
 func New(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
 	header(w, "new "+branch, repos)
-	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
 	fmt.Fprintln(w, "  Условие: если есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
 	fmt.Fprintf(w, "  Условие: если `%s` — дефолтная ветка репозитория — пропустить (default).\n", branch)
 	fmt.Fprintf(w, "  Условие: если ветка `%s` уже существует локально — пропустить (exists).\n", branch)
@@ -154,7 +159,7 @@ func Switch(w io.Writer, a *app.Args, repos []string) {
 		label = branch
 	}
 	header(w, strings.TrimSpace("switch "+branch), repos)
-	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
 	fmt.Fprintln(w, "  Условие: если в репозитории есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
 	fmt.Fprintln(w, "  Иначе:")
 	fmt.Fprintf(w, "    Условие: если ветка %s существует (локально или origin/%s)\n", label, label)
@@ -167,7 +172,7 @@ func Switch(w io.Writer, a *app.Args, repos []string) {
 func Cancel(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
 	header(w, "cancel "+branch, repos)
-	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (origin/HEAD, иначе main/master/develop)")
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
 	fmt.Fprintf(w, "  Условие: если `%s` — дефолтная ветка репозитория — пропустить (default).\n", branch)
 	fmt.Fprintf(w, "  Условие: если локальной ветки `%s` нет — пропустить молча.\n", branch)
 	fmt.Fprintln(w, "  Иначе:")

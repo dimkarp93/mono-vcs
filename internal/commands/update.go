@@ -29,7 +29,8 @@ func Update(ctx *app.Context) int {
 		return 0
 	}
 
-	fallback := a.GetMainBranch()
+	defs := resolveDefaults(ctx, local, nil)
+
 	fmt.Fprintf(out, "updating the default branch in %d repos (jobs=%d)\n", len(local), a.GetJobs())
 
 	type umResult struct {
@@ -46,14 +47,18 @@ func Update(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			branch, _ := gitops.DefaultBranch(p, fallback)
+			branch, ok := defs.get(p)
+			if !ok {
+				results <- umResult{gitops.Result{Path: p, Status: "unresolved", Detail: unresolvedDefaultBranch}, "", ""}
+				return
+			}
 			r, orig := gitops.UpdateMainOne(p, a.GLToken, branch)
 			results <- umResult{r, orig, branch}
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
 
-	failures, blocked, done, total := 0, 0, 0, len(local)
+	failures, blocked, unresolved, done, total := 0, 0, 0, 0, len(local)
 	var toRebase [][3]string
 	for r := range results {
 		done++
@@ -63,6 +68,9 @@ func Update(ctx *app.Context) int {
 			fmt.Fprintf(ctx.Stderr, "[%d/%d] FAILED     %s: %s\n", done, total, r.res.Path, r.res.Detail)
 		case "dirty":
 			blocked++
+			fmt.Fprintf(ctx.Stderr, "[%d/%d] ERROR      %s: %s\n", done, total, r.res.Path, r.res.Detail)
+		case "unresolved":
+			unresolved++
 			fmt.Fprintf(ctx.Stderr, "[%d/%d] ERROR      %s: %s\n", done, total, r.res.Path, r.res.Detail)
 		default:
 			fmt.Fprintf(out, "[%d/%d] %-10s %s [%s]\n", done, total, r.res.Status, r.res.Path, r.branch)
@@ -100,7 +108,10 @@ func Update(ctx *app.Context) int {
 		}
 	}
 
-	if failures > 0 || blocked > 0 {
+	if failures > 0 || blocked > 0 || unresolved > 0 {
+		if unresolved > 0 {
+			fmt.Fprintf(ctx.Stderr, "%d repo(s) skipped — the default branch could not be determined\n", unresolved)
+		}
 		if blocked > 0 {
 			fmt.Fprintf(ctx.Stderr, "%d repo(s) skipped due to uncommitted changes\n", blocked)
 		}
