@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/dimkarp93/mono-vcs/internal/state"
 )
 
 func S(s string) *string { return &s }
@@ -94,6 +97,17 @@ func MakeRemote(t *testing.T, dir, source, branch string) string {
 	return remote
 }
 
+func MakeClonedRepo(t *testing.T, dir, name, branch string) string {
+	t.Helper()
+	if branch == "" {
+		branch = "main"
+	}
+	repo := MakeRepo(t, dir, name, branch)
+	MakeRemote(t, t.TempDir(), repo, branch)
+	Run(t, repo, "git", "remote", "set-head", "origin", branch)
+	return repo
+}
+
 func LinkedRepo(t *testing.T, dir string) (local, remote string) {
 	local = MakeRepo(t, dir, "linked", "main")
 	remote = MakeRemote(t, dir, local, "main")
@@ -104,6 +118,7 @@ type fakeProject struct {
 	ID                int    `json:"id"`
 	PathWithNamespace string `json:"path_with_namespace"`
 	HTTPURLToRepo     string `json:"http_url_to_repo"`
+	DefaultBranch     string `json:"default_branch,omitempty"`
 }
 
 type FakeGitLab struct {
@@ -129,8 +144,19 @@ func (f *FakeGitLab) AddProject(pathWithNamespace, httpURL string) int {
 	if httpURL == "" {
 		httpURL = "https://gitlab.example/" + pathWithNamespace + ".git"
 	}
-	f.projects = append(f.projects, fakeProject{id, pathWithNamespace, httpURL})
+	f.projects = append(f.projects, fakeProject{ID: id, PathWithNamespace: pathWithNamespace, HTTPURLToRepo: httpURL})
 	return id
+}
+
+func (f *FakeGitLab) SetDefaultBranch(projectID int, branch string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.projects {
+		if f.projects[i].ID == projectID {
+			f.projects[i].DefaultBranch = branch
+			return
+		}
+	}
 }
 
 func (f *FakeGitLab) SetBranchSHA(projectID int, branch, sha string) {
@@ -186,4 +212,59 @@ func atoiDefault(s string, def int) int {
 		return n
 	}
 	return def
+}
+
+func SeedStateFromRepos(t *testing.T, root string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "state.json")
+	st, err := state.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || d.Name() != ".git" {
+			return nil
+		}
+		repo := filepath.Dir(p)
+		cmd := exec.Command("git", "-C", repo, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD")
+		cmd.Env = gitEnv()
+		out, cerr := cmd.Output()
+		if cerr == nil {
+			st.SetDefaultBranch(repo, strings.TrimPrefix(strings.TrimSpace(string(out)), "origin/"))
+		}
+		return fs.SkipDir
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func StatePath(t *testing.T, branches map[string]string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "state.json")
+	st, err := state.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for repo, branch := range branches {
+		st.SetDefaultBranch(repo, branch)
+	}
+	if err := st.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func StoredDefaultBranch(t *testing.T, statePath, repo string) string {
+	t.Helper()
+	st, err := state.Open(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := st.DefaultBranch(repo)
+	return b
 }

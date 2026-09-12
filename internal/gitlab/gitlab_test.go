@@ -152,3 +152,28 @@ func TestFetchRemoteBranchSHATransportErrorIsEmpty(t *testing.T) {
 		t.Fatalf("sha=%q", sha)
 	}
 }
+
+func TestFetchProjectsParsesDefaultBranch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"id":7,"path_with_namespace":"g/r","http_url_to_repo":"https://h/g/r.git","default_branch":"trunk"}]`)
+	}))
+	defer srv.Close()
+	out, err := FetchProjects(srv.URL, "T")
+	if err != nil || len(out) != 1 {
+		t.Fatalf("out=%v err=%v", out, err)
+	}
+	if out[0].DefaultBranch != "trunk" {
+		t.Fatalf("default branch=%q", out[0].DefaultBranch)
+	}
+}
+
+func TestFetchProjectsToleratesMissingDefaultBranch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"id":7,"path_with_namespace":"g/r"}]`)
+	}))
+	defer srv.Close()
+	out, err := FetchProjects(srv.URL, "T")
+	if err != nil || len(out) != 1 || out[0].DefaultBranch != "" {
+		t.Fatalf("out=%v err=%v", out, err)
+	}
+}

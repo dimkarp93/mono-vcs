@@ -65,30 +65,6 @@ func (p *Prompter) Token(optional bool) (string, error) {
 	return val, nil
 }
 
-func (p *Prompter) Choice(label, current string, choices []string, def string) (string, error) {
-	base := def
-	if contains(choices, current) {
-		base = current
-	}
-	suffix := fmt.Sprintf(" (%s) [%s]", strings.Join(choices, "/"), base)
-	for {
-		fmt.Fprintf(p.out, "%s%s: ", label, suffix)
-		val, err := p.readLine()
-		if err != nil && val == "" {
-			fmt.Fprintln(p.out)
-			return "", errors.New("init aborted")
-		}
-		val = strings.ToLower(strings.TrimSpace(val))
-		if val == "" {
-			return base, nil
-		}
-		if contains(choices, val) {
-			return val, nil
-		}
-		fmt.Fprintf(p.out, "  must be one of: %s\n", strings.Join(choices, ", "))
-	}
-}
-
 func (p *Prompter) Free(label, current string, required bool) (string, error) {
 	suffix := ""
 	if current != "" {
@@ -147,15 +123,6 @@ func (p *Prompter) ForceDelete(path string) (string, error) {
 	prompt := fmt.Sprintf("%q exists but is not a git repo — delete it and clone?\n"+
 		"  [y]es  [a] yes to all  [s]kip  [sa] skip to all: ", path)
 	return p.forceLoop(prompt)
-}
-
-func contains(ss []string, s string) bool {
-	for _, x := range ss {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }
 
 func isTTY(r io.Reader) bool {

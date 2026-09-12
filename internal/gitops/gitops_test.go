@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
@@ -239,31 +240,65 @@ func TestCloneOneForceRemovesNonRepo(t *testing.T) {
 	}
 }
 
-func TestPullOneUpToDate(t *testing.T) {
-	local, _ := testutil.LinkedRepo(t, t.TempDir())
-	res := gitops.PullOne(local, "")
-	if res.Path != local || res.Status != "up-to-date" {
-		t.Fatalf("got %+v", res)
-	}
-}
-
-func TestPullOneAdvancesHead(t *testing.T) {
-	dir := t.TempDir()
+func advancedRemote(t *testing.T) (local, dir string) {
+	t.Helper()
+	dir = t.TempDir()
 	local, remote := testutil.LinkedRepo(t, dir)
 	side := filepath.Join(dir, "side")
 	testutil.Run(t, dir, "git", "clone", remote, side)
 	testutil.Commit(t, side, "advance", "extra", "y")
 	testutil.Run(t, side, "git", "push", "origin", "main")
-	res := gitops.PullOne(local, "")
-	if res.Status != "updated" && res.Status != "up-to-date" {
-		t.Fatalf("status=%q", res.Status)
+	return local, dir
+}
+
+func branchSHA(t *testing.T, repo, ref string) string {
+	t.Helper()
+	return strings.TrimSpace(testutil.Run(t, repo, "git", "rev-parse", ref))
+}
+
+func TestPullDefaultOneUpToDate(t *testing.T) {
+	local, _ := testutil.LinkedRepo(t, t.TempDir())
+	res := gitops.PullDefaultOne(local, "", "main")
+	if res.Path != local || res.Status != "up-to-date" {
+		t.Fatalf("got %+v", res)
+	}
+}
+
+func TestPullDefaultOneOnDefaultBranchUpdatesWorktree(t *testing.T) {
+	local, _ := advancedRemote(t)
+	res := gitops.PullDefaultOne(local, "", "main")
+	if res.Status != "updated" {
+		t.Fatalf("got %+v", res)
 	}
 	if _, err := os.Stat(filepath.Join(local, "extra")); err != nil {
 		t.Fatal("expected extra file pulled")
 	}
 }
 
-func TestPullOneFailedOnDiverged(t *testing.T) {
+func TestPullDefaultOneFromFeatureBranchLeavesWorktreeAlone(t *testing.T) {
+	local, _ := advancedRemote(t)
+	testutil.Run(t, local, "git", "checkout", "-b", "feature")
+	write(t, local, "README", "dirty")
+
+	res := gitops.PullDefaultOne(local, "", "main")
+	if res.Status != "updated" {
+		t.Fatalf("got %+v", res)
+	}
+	if b := gitops.CurrentBranch(local); b != "feature" {
+		t.Fatalf("branch=%q", b)
+	}
+	if !gitops.IsDirty(local) {
+		t.Fatal("uncommitted changes must survive")
+	}
+	if _, err := os.Stat(filepath.Join(local, "extra")); err == nil {
+		t.Fatal("the worktree must not be touched")
+	}
+	if branchSHA(t, local, "refs/heads/main") != branchSHA(t, local, "refs/remotes/origin/main") {
+		t.Fatal("main and origin/main must match after the fetch")
+	}
+}
+
+func TestPullDefaultOneDivergedIsReported(t *testing.T) {
 	dir := t.TempDir()
 	local, remote := testutil.LinkedRepo(t, dir)
 	side := filepath.Join(dir, "side")
@@ -271,9 +306,25 @@ func TestPullOneFailedOnDiverged(t *testing.T) {
 	testutil.Commit(t, side, "side", "x", "side")
 	testutil.Run(t, side, "git", "push", "origin", "main")
 	testutil.Commit(t, local, "local diverge", "y", "local")
-	testutil.Run(t, local, "git", "fetch")
-	if res := gitops.PullOne(local, ""); res.Status != "failed" {
-		t.Fatalf("status=%q", res.Status)
+	testutil.Run(t, local, "git", "checkout", "-b", "feature")
+	before := branchSHA(t, local, "refs/heads/main")
+
+	res := gitops.PullDefaultOne(local, "", "main")
+	if res.Status != "diverged" {
+		t.Fatalf("got %+v", res)
+	}
+	if branchSHA(t, local, "refs/heads/main") != before {
+		t.Fatal("main must not move when it has diverged")
+	}
+}
+
+func TestPullDefaultOneDirtyOnDefaultBranch(t *testing.T) {
+	local, _ := advancedRemote(t)
+	write(t, local, "extra", "mine")
+
+	res := gitops.PullDefaultOne(local, "", "main")
+	if res.Status != "dirty" {
+		t.Fatalf("got %+v", res)
 	}
 }
 

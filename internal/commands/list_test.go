@@ -11,10 +11,7 @@ import (
 )
 
 func listArgs(fake *testutil.FakeGitLab) *app.Args {
-	return &app.Args{
-		GLURL: testutil.S(fake.URL), GLToken: "T", Jobs: testutil.I(1),
-		MainBranch: testutil.S("main"),
-	}
+	return &app.Args{GLURL: testutil.S(fake.URL), GLToken: "T", Jobs: testutil.I(1)}
 }
 
 func TestListGreenSyncedPairHiddenByDefault(t *testing.T) {
@@ -23,13 +20,13 @@ func TestListGreenSyncedPairHiddenByDefault(t *testing.T) {
 	fake := testutil.NewFakeGitLab(t)
 	makeSyncedPair(t, ws, fake, "grp/proj")
 
-	ctx, out, _ := newCtx(listArgs(fake), "")
+	ctx, out, _ := newCtx(t, listArgs(fake), "")
 	commands.List(ctx)
 	notContains(t, out.String(), "grp/proj")
 
 	a := listArgs(fake)
 	a.All = true
-	ctx2, out2, _ := newCtx(a, "")
+	ctx2, out2, _ := newCtx(t, a, "")
 	commands.List(ctx2)
 	contains(t, out2.String(), "grp/proj")
 }
@@ -42,7 +39,7 @@ func TestListYellowWhenSHADiverges(t *testing.T) {
 	makeSyncedPair(t, ws, fake, "beta/q")
 	fake.SetBranchSHA(id, "main", "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
 
-	ctx, out, _ := newCtx(listArgs(fake), "")
+	ctx, out, _ := newCtx(t, listArgs(fake), "")
 	commands.List(ctx)
 	contains(t, out.String(), "alpha/p")
 }
@@ -51,11 +48,11 @@ func TestListRedLocalOnly(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	fake := testutil.NewFakeGitLab(t)
-	testutil.MakeRepo(t, ws, "lonely", "main")
+	testutil.MakeClonedRepo(t, ws, "lonely", "main")
 
 	a := listArgs(fake)
 	a.NonOrigin = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	commands.List(ctx)
 	contains(t, out.String(), "lonely")
 }
@@ -67,7 +64,7 @@ func TestListGrayRemoteOnly(t *testing.T) {
 	fake.AddProject("alpha/p", "")
 	fake.AddProject("beta/q", "")
 
-	ctx, out, _ := newCtx(listArgs(fake), "")
+	ctx, out, _ := newCtx(t, listArgs(fake), "")
 	commands.List(ctx)
 	contains(t, out.String(), "alpha/p")
 	contains(t, out.String(), "beta/q")
@@ -81,7 +78,7 @@ func TestListBlueFeatureBranch(t *testing.T) {
 	makeSyncedPair(t, ws, fake, "beta/q")
 	testutil.Run(t, repo, "git", "checkout", "-b", "feature")
 
-	ctx, out, _ := newCtx(listArgs(fake), "")
+	ctx, out, _ := newCtx(t, listArgs(fake), "")
 	commands.List(ctx)
 	contains(t, out.String(), "alpha/p")
 	contains(t, out.String(), "[feature]")
@@ -99,7 +96,7 @@ func TestListDirtyMarker(t *testing.T) {
 
 	a := listArgs(fake)
 	a.Dirty = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	commands.List(ctx)
 	contains(t, out.String(), "alpha/p")
 	contains(t, out.String(), "✗")
@@ -114,7 +111,7 @@ func TestListUsesFullNamespacePath(t *testing.T) {
 
 	a := listArgs(fake)
 	a.All = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	commands.List(ctx)
 	contains(t, out.String(), "mono/a")
 	contains(t, out.String(), "mono/b")
@@ -131,7 +128,7 @@ func TestListRepoFilter(t *testing.T) {
 	a := listArgs(fake)
 	a.All = true
 	a.Repo = []string{"libs/"}
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	commands.List(ctx)
 	contains(t, out.String(), "libs/a")
 	notContains(t, out.String(), "tools/b")
@@ -149,7 +146,7 @@ func TestListAlignsBranchColumn(t *testing.T) {
 
 	a := listArgs(fake)
 	a.All = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	commands.List(ctx)
 
 	var cols []int
@@ -178,7 +175,7 @@ func TestListTruncatesOverlongPaths(t *testing.T) {
 
 	a := listArgs(fake)
 	a.All = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	commands.List(ctx)
 
 	for _, line := range strings.Split(out.String(), "\n") {
@@ -194,4 +191,25 @@ func TestListTruncatesOverlongPaths(t *testing.T) {
 		return
 	}
 	t.Fatalf("repo line not found:\n%s", out.String())
+}
+
+func TestListAdoptsDefaultBranchFromGitLab(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	local := testutil.MakeClonedRepo(t, ws, "alpha/p", "master")
+	testutil.Run(t, local, "git", "branch", "main")
+	testutil.Run(t, local, "git", "push", "origin", "main")
+	testutil.Run(t, local, "git", "remote", "set-head", "origin", "master")
+	id := fake.AddProject("alpha/p", "")
+	fake.SetDefaultBranch(id, "main")
+	fake.SetBranchSHA(id, "main", strings.TrimSpace(testutil.Run(t, local, "git", "rev-parse", "HEAD")))
+
+	ctx, _, _ := newCtx(t, listArgs(fake), "")
+	if rc := commands.List(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if b := testutil.StoredDefaultBranch(t, ctx.Args.GetDBPath(), local); b != "main" {
+		t.Fatalf("stored=%q", b)
+	}
 }

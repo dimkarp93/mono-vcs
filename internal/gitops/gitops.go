@@ -150,20 +150,43 @@ func CloneOne(url, localTarget, token string, force bool) (string, bool, string)
 	return localTarget, false, firstNonEmpty(errOut, out)
 }
 
-func PullOne(path, token string) Result {
+func PullDefaultOne(path, token, branch string) Result {
+	before := LocalBranchSHA(path, branch)
 	args := []string{"-C", path}
 	args = append(args, GitExtraHeaderArgs(token)...)
-	args = append(args, "pull", "--ff-only", "--quiet")
+	if CurrentBranch(path) == branch {
+		args = append(args, "pull", "--ff-only", "--quiet")
+	} else {
+		args = append(args, "fetch", "origin",
+			"refs/heads/"+branch+":refs/heads/"+branch,
+			"+refs/heads/"+branch+":refs/remotes/origin/"+branch)
+	}
 	out, errOut, rc := runGit(args...)
 	if rc != 0 {
-		return Result{path, "failed", firstNonEmpty(errOut, out)}
+		detail := firstNonEmpty(errOut, out)
+		switch {
+		case strings.Contains(detail, "non-fast-forward") || strings.Contains(detail, "rejected"):
+			return Result{path, "diverged", fmt.Sprintf("local %s has diverged from origin/%s", branch, branch)}
+		case IsDirty(path):
+			return Result{path, "dirty", detail}
+		default:
+			return Result{path, "failed", detail}
+		}
 	}
+	if after := LocalBranchSHA(path, branch); after != before {
+		return Result{path, "updated", fmt.Sprintf("%s -> %s", shortSHA(before), shortSHA(after))}
+	}
+	return Result{path, "up-to-date", ""}
+}
 
-	combined := strings.TrimSpace(out + errOut)
-	if combined == "" {
-		return Result{path, "up-to-date", ""}
+func shortSHA(sha string) string {
+	if len(sha) > 7 {
+		return sha[:7]
 	}
-	return Result{path, "updated", combined}
+	if sha == "" {
+		return "(none)"
+	}
+	return sha
 }
 
 func UpdateMainOne(path, token, branch string) (Result, string) {

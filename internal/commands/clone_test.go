@@ -30,7 +30,7 @@ func TestCloneFresh(t *testing.T) {
 	fake.AddProject("alpha/p", seedRemote(t, remotes, "a"))
 	fake.AddProject("beta/q", seedRemote(t, remotes, "b"))
 
-	ctx, _, _ := newCtx(cloneArgs(fake, 2), "")
+	ctx, _, _ := newCtx(t, cloneArgs(fake, 2), "")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -47,7 +47,7 @@ func TestCloneKeepsFullNamespacePathForSingleGroup(t *testing.T) {
 	fake.AddProject("mono/a", seedRemote(t, remotes, "a"))
 	fake.AddProject("mono/b", seedRemote(t, remotes, "b"))
 
-	ctx, _, _ := newCtx(cloneArgs(fake, 2), "")
+	ctx, _, _ := newCtx(t, cloneArgs(fake, 2), "")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -69,7 +69,7 @@ func TestCloneSkipsExisting(t *testing.T) {
 	fake.AddProject("beta/q", r)
 	testutil.MakeRepo(t, ws, "alpha/p", "main")
 
-	ctx, out, _ := newCtx(cloneArgs(fake, 1), "")
+	ctx, out, _ := newCtx(t, cloneArgs(fake, 1), "")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -89,7 +89,7 @@ func TestClonePromptsForNonRepoDirSkip(t *testing.T) {
 	os.MkdirAll(junk, 0o755)
 	os.WriteFile(filepath.Join(junk, "stuff"), []byte("data"), 0o644)
 
-	ctx, _, _ := newCtx(cloneArgs(fake, 1), "s\n")
+	ctx, _, _ := newCtx(t, cloneArgs(fake, 1), "s\n")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -110,7 +110,7 @@ func TestCloneForceYesAllReplaces(t *testing.T) {
 		os.WriteFile(filepath.Join(p, "junk"), []byte("x"), 0o644)
 	}
 
-	ctx, _, _ := newCtx(cloneArgs(fake, 1), "a\n")
+	ctx, _, _ := newCtx(t, cloneArgs(fake, 1), "a\n")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -123,7 +123,7 @@ func TestCloneNothingToDo(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	fake := testutil.NewFakeGitLab(t)
-	ctx, out, _ := newCtx(cloneArgs(fake, 1), "")
+	ctx, out, _ := newCtx(t, cloneArgs(fake, 1), "")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}

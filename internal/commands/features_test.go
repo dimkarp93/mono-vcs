@@ -9,14 +9,14 @@ import (
 )
 
 func featuresArgs() *app.Args {
-	return &app.Args{MainBranch: testutil.S("main")}
+	return &app.Args{}
 }
 
 func TestFeaturesEmpty(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	testutil.MakeRepo(t, ws, "p", "main")
-	ctx, out, _ := newCtx(featuresArgs(), "")
+	testutil.MakeClonedRepo(t, ws, "p", "main")
+	ctx, out, _ := newCtx(t, featuresArgs(), "")
 	if rc := commands.Features(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -26,11 +26,11 @@ func TestFeaturesEmpty(t *testing.T) {
 func TestFeaturesListsBranchAndActives(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	a := testutil.MakeRepo(t, ws, "a", "main")
-	b := testutil.MakeRepo(t, ws, "b", "main")
+	a := testutil.MakeClonedRepo(t, ws, "a", "main")
+	b := testutil.MakeClonedRepo(t, ws, "b", "main")
 	testutil.Run(t, a, "git", "branch", "feat-x")
 	testutil.Run(t, b, "git", "checkout", "-b", "feat-x")
-	ctx, out, _ := newCtx(featuresArgs(), "")
+	ctx, out, _ := newCtx(t, featuresArgs(), "")
 	if rc := commands.Features(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}

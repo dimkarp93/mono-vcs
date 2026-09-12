@@ -65,10 +65,7 @@ func List(ctx *app.Context) int {
 		output.Die(ctx.Stderr, err.Error())
 		return 1
 	}
-	projectsByPath := map[string]gitlab.Project{}
-	for _, p := range projects {
-		projectsByPath[p.PathWithNamespace] = p
-	}
+	projectsByPath := projectsByPath(projects)
 	remote := map[string]bool{}
 	for k := range projectsByPath {
 		remote[k] = true
@@ -87,29 +84,15 @@ func List(ctx *app.Context) int {
 
 	both := sortedSet(intersect(remote, local))
 	haveGit := hasGit()
-	fallback := a.GetMainBranch()
 	jobs := a.GetJobs()
 
 	inSync := map[string]int{}
 	info := map[string]localInfo{}
-	defaultOf := map[string]string{}
+	defaultOf := resolveDefaults(ctx, repos.SortedKeys(local), projectsByPath).byPath
 	if haveGit {
 		var mu sync.Mutex
 		sem := make(chan struct{}, jobs)
 		var wg sync.WaitGroup
-		for path := range local {
-			wg.Add(1)
-			sem <- struct{}{}
-			go func(path string) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				b, _ := gitops.DefaultBranch(path, fallback)
-				mu.Lock()
-				defaultOf[path] = b
-				mu.Unlock()
-			}(path)
-		}
-		wg.Wait()
 		for _, path := range both {
 			wg.Add(1)
 			sem <- struct{}{}

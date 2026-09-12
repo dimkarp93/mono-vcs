@@ -10,14 +10,14 @@ import (
 )
 
 func newArgs(branch string) *app.Args {
-	return &app.Args{Branch: branch, Jobs: testutil.I(1), MainBranch: testutil.S("main")}
+	return &app.Args{Branch: branch, Jobs: testutil.I(1)}
 }
 
 func TestNewCreatesLocalBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main")
-	ctx, out, _ := newCtx(newArgs("MVPAY-290"), "")
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
+	ctx, out, _ := newCtx(t, newArgs("MVPAY-290"), "")
 	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -30,8 +30,8 @@ func TestNewCreatesLocalBranch(t *testing.T) {
 func TestNewSkipsDefaultBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	testutil.MakeRepo(t, ws, "p", "main")
-	ctx, out, _ := newCtx(newArgs("main"), "")
+	testutil.MakeClonedRepo(t, ws, "p", "main")
+	ctx, out, _ := newCtx(t, newArgs("main"), "")
 	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -41,9 +41,9 @@ func TestNewSkipsDefaultBranch(t *testing.T) {
 func TestNewExistingIsNotError(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main")
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
 	testutil.Run(t, p, "git", "branch", "feature")
-	ctx, out, _ := newCtx(newArgs("feature"), "")
+	ctx, out, _ := newCtx(t, newArgs("feature"), "")
 	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -53,9 +53,9 @@ func TestNewExistingIsNotError(t *testing.T) {
 func TestNewDirtyIsSkipped(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main")
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
 	writeFile(p, "README", "dirty")
-	ctx, _, errb := newCtx(newArgs("feature"), "")
+	ctx, _, errb := newCtx(t, newArgs("feature"), "")
 	if rc := commands.New(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -65,11 +65,11 @@ func TestNewDirtyIsSkipped(t *testing.T) {
 func TestNewRepoFilter(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	a := testutil.MakeRepo(t, ws, "a", "main")
-	b := testutil.MakeRepo(t, ws, "b", "main")
+	a := testutil.MakeClonedRepo(t, ws, "a", "main")
+	b := testutil.MakeClonedRepo(t, ws, "b", "main")
 	args := newArgs("feature")
 	args.Repo = []string{"a"}
-	ctx, _, _ := newCtx(args, "")
+	ctx, _, _ := newCtx(t, args, "")
 	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -84,10 +84,10 @@ func TestNewRepoFilter(t *testing.T) {
 func TestNewDryRun(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main")
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
 	a := newArgs("feature")
 	a.DryRun = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -95,4 +95,17 @@ func TestNewDryRun(t *testing.T) {
 	if gitops.HasBranch(p, "feature") {
 		t.Fatal("dry-run must not create the branch")
 	}
+}
+
+func TestNewSkipsRepoWithoutResolvableDefault(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	testutil.MakeRepo(t, ws, "orphan", "trunk")
+
+	ctx, out, errb := newCtx(t, newArgs("feat"), "")
+	if rc := commands.New(ctx); rc != 1 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "unresolved: 1")
+	contains(t, errb.String(), "the default branch is unknown")
 }

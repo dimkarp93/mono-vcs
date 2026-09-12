@@ -9,15 +9,13 @@ import (
 )
 
 func defaultBranchArgs() *app.Args {
-	return &app.Args{Jobs: testutil.I(1), MainBranch: testutil.S("main")}
+	return &app.Args{Jobs: testutil.I(1)}
 }
 
 func makeMixedWorkspace(t *testing.T, ws string) {
 	t.Helper()
-	a := testutil.MakeRepo(t, ws, "a", "main")
-	testutil.MakeRemote(t, t.TempDir(), a, "main")
-	b := testutil.MakeRepo(t, ws, "b", "master")
-	testutil.MakeRemote(t, t.TempDir(), b, "master")
+	testutil.MakeClonedRepo(t, ws, "a", "main")
+	testutil.MakeClonedRepo(t, ws, "b", "master")
 }
 
 func TestDefaultBranchListsPerRepo(t *testing.T) {
@@ -25,7 +23,7 @@ func TestDefaultBranchListsPerRepo(t *testing.T) {
 	t.Chdir(ws)
 	makeMixedWorkspace(t, ws)
 
-	ctx, out, _ := newCtx(defaultBranchArgs(), "")
+	ctx, out, _ := newCtx(t, defaultBranchArgs(), "")
 	if rc := commands.DefaultBranch(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -42,7 +40,7 @@ func TestDefaultBranchRespectsRepoFilter(t *testing.T) {
 
 	a := defaultBranchArgs()
 	a.Repo = []string{"b"}
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	if rc := commands.DefaultBranch(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -51,14 +49,29 @@ func TestDefaultBranchRespectsRepoFilter(t *testing.T) {
 	notContains(t, o, "main")
 }
 
-func TestDefaultBranchMarksFallback(t *testing.T) {
+func TestDefaultBranchReportsUnresolved(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	testutil.MakeRepo(t, ws, "odd", "trunk")
 
-	ctx, out, _ := newCtx(defaultBranchArgs(), "")
-	if rc := commands.DefaultBranch(ctx); rc != 0 {
+	ctx, out, errb := newCtx(t, defaultBranchArgs(), "")
+	if rc := commands.DefaultBranch(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
-	contains(t, out.String(), "odd  main  (fallback)")
+	contains(t, out.String(), "odd  (unresolved)")
+	contains(t, out.String(), "1 repo(s): unresolved=1")
+	contains(t, errb.String(), "the default branch is unknown")
+}
+
+func TestDefaultBranchUnresolvedWithoutStateEntry(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	repo := testutil.MakeRepo(t, ws, "named", "main")
+	testutil.MakeRemote(t, t.TempDir(), repo, "main")
+
+	ctx, out, _ := newCtx(t, defaultBranchArgs(), "")
+	if rc := commands.DefaultBranch(ctx); rc != 1 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "named  (unresolved)")
 }

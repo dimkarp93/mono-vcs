@@ -4,16 +4,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"unicode/utf8"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
-	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
 func DefaultBranch(ctx *app.Context) int {
-	a := ctx.Args
 	out := ctx.Stdout
 	if !hasGit() {
 		output.Die(ctx.Stderr, "git not found in PATH")
@@ -25,26 +22,14 @@ func DefaultBranch(ctx *app.Context) int {
 		return 0
 	}
 
-	fallback := a.GetMainBranch()
+	defs := resolveDefaults(ctx, local, nil)
 	branches := make(map[string]string, len(local))
 	detected := make(map[string]bool, len(local))
-	var mu sync.Mutex
-	sem := make(chan struct{}, a.GetJobs())
-	var wg sync.WaitGroup
 	for _, p := range local {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(p string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			b, ok := gitops.DefaultBranch(p, fallback)
-			mu.Lock()
-			branches[p] = b
-			detected[p] = ok
-			mu.Unlock()
-		}(p)
+		b, ok := defs.get(p)
+		branches[p] = b
+		detected[p] = ok
 	}
-	wg.Wait()
 
 	width := 0
 	for _, p := range local {
@@ -53,12 +38,14 @@ func DefaultBranch(ctx *app.Context) int {
 		}
 	}
 	counts := map[string]int{}
+	var unresolved []string
 	for _, p := range local {
-		line := fmt.Sprintf("%-*s  %s", width, p, branches[p])
 		if !detected[p] {
-			line += "  (fallback)"
+			unresolved = append(unresolved, p)
+			fmt.Fprintf(out, "%-*s  (unresolved)\n", width, p)
+			continue
 		}
-		fmt.Fprintln(out, line)
+		fmt.Fprintf(out, "%-*s  %s\n", width, p, branches[p])
 		counts[branches[p]]++
 	}
 
@@ -72,10 +59,17 @@ func DefaultBranch(ctx *app.Context) int {
 		}
 		return names[i] < names[j]
 	})
-	parts := make([]string, 0, len(names))
+	parts := make([]string, 0, len(names)+1)
 	for _, b := range names {
 		parts = append(parts, fmt.Sprintf("%s=%d", b, counts[b]))
 	}
+	if len(unresolved) > 0 {
+		parts = append(parts, fmt.Sprintf("unresolved=%d", len(unresolved)))
+	}
 	fmt.Fprintf(out, "\n%d repo(s): %s\n", len(local), strings.Join(parts, ", "))
+	if len(unresolved) > 0 {
+		reportUnresolved(ctx.Stderr, unresolved)
+		return 1
+	}
 	return 0
 }

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
@@ -10,17 +11,6 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
 )
-
-func classifyForPull(p *gitlab.Project, localPath, glURL, token, branch string) string {
-	if p == nil {
-		return "red"
-	}
-	inSync, known := mainInSync(*p, localPath, glURL, token, branch)
-	if known && !inSync {
-		return "yellow"
-	}
-	return "green"
-}
 
 func Pull(ctx *app.Context) int {
 	a := ctx.Args
@@ -39,92 +29,102 @@ func Pull(ctx *app.Context) int {
 		return 0
 	}
 
-	projects, err := gitlab.FetchProjects(a.GetGLURL(), a.GLToken)
-	if err != nil {
-		output.Die(ctx.Stderr, err.Error())
-		return 1
-	}
 	byPath := map[string]gitlab.Project{}
-	for _, p := range projects {
-		byPath[p.PathWithNamespace] = p
+	if projects, err := gitlab.FetchProjects(a.GetGLURL(), a.GLToken); err != nil {
+		fmt.Fprintf(ctx.Stderr, "warning: %s — falling back to the state db\n", err.Error())
+	} else {
+		byPath = projectsByPath(projects)
 	}
 
-	fallback := a.GetMainBranch()
-	jobs := a.GetJobs()
-	fmt.Fprintf(out, "checking the default branch of %d local repo(s) against GitLab...\n", len(local))
+	defs := resolveDefaults(ctx, local, byPath)
+	if defs.refreshed > 0 {
+		fmt.Fprintf(out, "refreshed the default branch of %d repo(s) from GitLab\n", defs.refreshed)
+	}
 
-	colorOf := map[string]string{}
-	var mu sync.Mutex
+	var targets []string
+	for _, p := range local {
+		if _, ok := defs.get(p); ok {
+			targets = append(targets, p)
+		}
+	}
+	unresolved := defs.missing
+	if len(targets) == 0 {
+		fmt.Fprintln(out, "nothing to pull")
+		if len(unresolved) > 0 {
+			reportUnresolved(ctx.Stderr, unresolved)
+			return 1
+		}
+		return 0
+	}
+
+	jobs := a.GetJobs()
+	fmt.Fprintf(out, "fetching the default branch of %d repo(s) (jobs=%d)\n", len(targets), jobs)
+
+	results := make(chan gitops.Result, len(targets))
 	sem := make(chan struct{}, jobs)
 	var wg sync.WaitGroup
-	for _, p := range local {
+	for _, p := range targets {
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			var proj *gitlab.Project
-			if pr, ok := byPath[p]; ok {
-				proj = &pr
-			}
-			branch, _ := gitops.DefaultBranch(p, fallback)
-			c := classifyForPull(proj, p, a.GetGLURL(), a.GLToken, branch)
-			mu.Lock()
-			colorOf[p] = c
-			mu.Unlock()
+			branch, _ := defs.get(p)
+			results <- gitops.PullDefaultOne(p, a.GLToken, branch)
 		}(p)
 	}
-	wg.Wait()
+	go func() { wg.Wait(); close(results) }()
 
-	var yellow, green, red []string
-	for _, p := range local {
-		switch colorOf[p] {
-		case "yellow":
-			yellow = append(yellow, p)
-		case "green":
-			green = append(green, p)
-		case "red":
-			red = append(red, p)
-		}
-	}
-	if len(green) > 0 {
-		fmt.Fprintf(out, "  skipping %d green repo(s) — the local default branch already matches remote\n", len(green))
-	}
-	if len(red) > 0 {
-		fmt.Fprintf(out, "  skipping %d red repo(s) — not visible in GitLab, nothing to pull from\n", len(red))
-	}
-	if len(yellow) == 0 {
-		fmt.Fprintln(out, "nothing to pull")
-		return 0
-	}
-
-	fmt.Fprintf(out, "pulling %d yellow repo(s) (jobs=%d)\n", len(yellow), jobs)
-	results := make(chan gitops.Result, len(yellow))
-	sem2 := make(chan struct{}, jobs)
-	var wg2 sync.WaitGroup
-	for _, p := range yellow {
-		wg2.Add(1)
-		sem2 <- struct{}{}
-		go func(p string) {
-			defer wg2.Done()
-			defer func() { <-sem2 }()
-			results <- gitops.PullOne(p, a.GLToken)
-		}(p)
-	}
-	go func() { wg2.Wait(); close(results) }()
-
-	failures, done, total := 0, 0, len(yellow)
+	updated, upToDate := 0, 0
+	var diverged, dirty []string
+	var failed [][2]string
+	done, total := 0, len(targets)
 	for res := range results {
 		done++
-		if res.Status == "failed" {
-			failures++
-			fmt.Fprintf(ctx.Stderr, "[%d/%d] FAILED %s: %s\n", done, total, res.Path, res.Detail)
-		} else {
-			fmt.Fprintf(out, "[%d/%d] %-10s %s\n", done, total, res.Status, res.Path)
+		switch res.Status {
+		case "updated":
+			updated++
+			fmt.Fprintf(out, "[%d/%d] updated    %s — %s\n", done, total, res.Path, res.Detail)
+		case "up-to-date":
+			upToDate++
+			fmt.Fprintf(out, "[%d/%d] up-to-date %s\n", done, total, res.Path)
+		case "diverged":
+			diverged = append(diverged, res.Path)
+		case "dirty":
+			dirty = append(dirty, res.Path)
+		default:
+			failed = append(failed, [2]string{res.Path, res.Detail})
 		}
 	}
-	if failures > 0 {
-		fmt.Fprintf(ctx.Stderr, "%d pull(s) failed\n", failures)
+
+	fmt.Fprintln(out)
+	fmt.Fprintf(out, "updated: %d, up-to-date: %d, diverged: %d, dirty: %d, failed: %d, unresolved: %d\n",
+		updated, upToDate, len(diverged), len(dirty), len(failed), len(unresolved))
+
+	if len(diverged) > 0 {
+		sort.Strings(diverged)
+		fmt.Fprintf(ctx.Stderr, "\nskipped — the local default branch has diverged from origin (%d):\n", len(diverged))
+		for _, p := range diverged {
+			fmt.Fprintf(ctx.Stderr, "  %s\n", p)
+		}
+	}
+	if len(dirty) > 0 {
+		sort.Strings(dirty)
+		fmt.Fprintf(ctx.Stderr, "\nskipped — uncommitted changes block the fast-forward (%d):\n", len(dirty))
+		for _, p := range dirty {
+			fmt.Fprintf(ctx.Stderr, "  %s\n", p)
+		}
+	}
+	if len(failed) > 0 {
+		sort.Slice(failed, func(i, j int) bool { return failed[i][0] < failed[j][0] })
+		fmt.Fprintf(ctx.Stderr, "\nfetch failed (%d):\n", len(failed))
+		for _, f := range failed {
+			fmt.Fprintf(ctx.Stderr, "  %s: %s\n", f[0], f[1])
+		}
+	}
+	reportUnresolved(ctx.Stderr, unresolved)
+
+	if len(failed) > 0 || len(diverged) > 0 || len(dirty) > 0 || len(unresolved) > 0 {
 		return 1
 	}
 	return 0

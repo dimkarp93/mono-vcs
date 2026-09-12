@@ -9,14 +9,14 @@ import (
 )
 
 func doArgs(action ...string) *app.Args {
-	return &app.Args{Action: action, Jobs: testutil.I(1), MainBranch: testutil.S("main")}
+	return &app.Args{Action: action, Jobs: testutil.I(1)}
 }
 
 func TestDoRequiresAction(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	testutil.MakeRepo(t, ws, "p", "main")
-	ctx, _, _ := newCtx(doArgs(), "")
+	ctx, _, _ := newCtx(t, doArgs(), "")
 	if rc := commands.Do(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -27,7 +27,7 @@ func TestDoRunsCommandInEachRepo(t *testing.T) {
 	t.Chdir(ws)
 	testutil.MakeRepo(t, ws, "a", "main")
 	testutil.MakeRepo(t, ws, "b", "main")
-	ctx, out, _ := newCtx(doArgs("pwd"), "")
+	ctx, out, _ := newCtx(t, doArgs("pwd"), "")
 	if rc := commands.Do(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -39,7 +39,7 @@ func TestDoFailurePropagates(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	testutil.MakeRepo(t, ws, "a", "main")
-	ctx, _, errb := newCtx(doArgs("false"), "")
+	ctx, _, errb := newCtx(t, doArgs("false"), "")
 	if rc := commands.Do(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -52,7 +52,7 @@ func TestDoDryRun(t *testing.T) {
 	testutil.MakeRepo(t, ws, "a", "main")
 	a := doArgs("echo", "hi")
 	a.DryRun = true
-	ctx, out, _ := newCtx(a, "")
+	ctx, out, _ := newCtx(t, a, "")
 	if rc := commands.Do(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}

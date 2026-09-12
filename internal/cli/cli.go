@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/commands"
@@ -67,7 +66,8 @@ func has(set []string, s string) bool {
 var (
 	jobsCommands = []string{"list", "clone", "pull", "update", "stash",
 		"unstash", "switch", "clear-stash", "cancel", "new", "prune", "default-branch"}
-	glURLCommands = []string{"list", "clone", "pull"}
+	glURLCommands = []string{"list", "clone", "pull", "update", "switch",
+		"cancel", "new", "features", "default-branch"}
 )
 
 var positionalArgs = map[string]string{
@@ -126,7 +126,7 @@ func (r *Runner) Run(argv []string) int {
 	}
 
 	h := r.Commands[a.Command]
-	return h(&app.Context{Args: a, Stdin: r.Stdin, Stdout: r.Stdout, Stderr: r.Stderr})
+	return h(&app.Context{Args: a, Stdin: r.Stdin, Stdout: r.Stdout, Stderr: r.Stderr, TokenFunc: r.TokenFunc})
 }
 
 func (r *Runner) parse(argv []string) (*app.Args, error) {
@@ -155,7 +155,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	}
 
 	jobs := func() { fs.Var(&intPtr{&a.Jobs}, "jobs", "parallelism (default: from config, else 1)") }
-	mainBranch := func() { fs.Var(&strPtr{&a.MainBranch}, "main-branch", "main branch name") }
 	repo := func() {
 		fs.Var(&repoFlag{&a.Repo}, "repo", "restrict to these repos (repeatable; comma-separated; bare name matches by repo name, trailing / matches a folder, a path like group/repo matches that exact path)")
 		fs.StringVar(&a.Feature, "feat", "", "restrict to repos that have a local branch with this name (mutually exclusive with -repo)")
@@ -166,7 +165,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	switch cmd {
 	case "list":
 		jobs()
-		mainBranch()
 		repo()
 		fs.BoolVar(&a.All, "all", false, "show every repo")
 		fs.BoolVar(&a.Changed, "changed", false, "changed repos (default filter)")
@@ -179,12 +177,10 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		jobs()
 	case "pull":
 		jobs()
-		mainBranch()
 		repo()
 		dryRun()
 	case "update":
 		jobs()
-		mainBranch()
 		repo()
 		dryRun()
 	case "stash", "unstash", "clear-stash":
@@ -195,7 +191,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		repo()
 	case "default-branch":
 		jobs()
-		mainBranch()
 		repo()
 	case "prune":
 		jobs()
@@ -204,24 +199,20 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		repo()
 		dryRun()
 	case "features":
-		mainBranch()
 		repo()
 	case "do":
 		repo()
 		dryRun()
 	case "switch":
 		jobs()
-		mainBranch()
 		repo()
 		dryRun()
 	case "cancel":
 		jobs()
-		mainBranch()
 		repo()
 		dryRun()
 	case "new":
 		jobs()
-		mainBranch()
 		repo()
 		dryRun()
 	case "init":
@@ -253,9 +244,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		}
 	}
 
-	if a.MainBranch != nil && !has(config.MainBranchChoices, *a.MainBranch) {
-		return nil, fmt.Errorf("--main-branch must be one of: %s", strings.Join(config.MainBranchChoices, ", "))
-	}
 	if a.Feature != "" && len(a.Repo) > 0 {
 		return nil, errors.New("-repo and -feat are mutually exclusive; pass only one")
 	}
