@@ -51,7 +51,7 @@ func TestSubcommandsRegistered(t *testing.T) {
 		"default-branch": true,
 		"stash":          true, "unstash": true, "clear-stash": true, "history-stash": true,
 		"prune": true, "features": true, "do": true, "switch": true,
-		"cancel": true, "new": true, "init": true,
+		"cancel": true, "new": true, "mr": true, "init": true,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
@@ -251,6 +251,33 @@ func TestCancelStillRequiresBranch(t *testing.T) {
 	r, c := newRunner(t)
 	r.Commands["cancel"] = c.handler
 	if rc := r.Run([]string{"cancel"}); rc != 2 {
+		t.Fatalf("rc=%d", rc)
+	}
+}
+
+func TestMRParsesOptionalBranchAndTitle(t *testing.T) {
+	r, c := newRunnerWithGLURL(t)
+	r.Commands["mr"] = c.handler
+	r.TokenFunc = func(bool) (string, error) { return "", nil }
+	if rc := r.Run([]string{"mr"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if c.args.Branch != "" {
+		t.Fatalf("branch=%q", c.args.Branch)
+	}
+	if rc := r.Run([]string{"mr", "-title", "hello world", "feat-x"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if c.args.Branch != "feat-x" || c.args.Title != "hello world" {
+		t.Fatalf("branch=%q title=%q", c.args.Branch, c.args.Title)
+	}
+}
+
+func TestMRDryRunSkipsToken(t *testing.T) {
+	r, c := newRunnerWithGLURL(t)
+	r.Commands["mr"] = c.handler
+	r.TokenFunc = func(bool) (string, error) { t.Fatal("token should not be asked"); return "", nil }
+	if rc := r.Run([]string{"mr", "--dry-run", "feat-x"}); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
 }
