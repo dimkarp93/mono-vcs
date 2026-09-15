@@ -1,6 +1,8 @@
 package commands_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
@@ -57,4 +59,32 @@ func TestDoDryRun(t *testing.T) {
 		t.Fatalf("rc=%d", rc)
 	}
 	contains(t, out.String(), "DRY-RUN: do echo hi")
+}
+
+func TestDoPreservesArgumentBoundaries(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	repo := testutil.MakeRepo(t, ws, "a", "main")
+	ctx, _, _ := newCtx(t, doArgs("touch", "two words"), "")
+	if rc := commands.Do(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if _, err := os.Stat(filepath.Join(repo, "two words")); err != nil {
+		t.Fatalf("expected file %q: %v", "two words", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, "two")); err == nil {
+		t.Fatal("argument boundaries lost: file \"two\" created")
+	}
+}
+
+func TestDoSingleArgumentKeepsShellSyntax(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	testutil.MakeRepo(t, ws, "a", "main")
+	ctx, out, _ := newCtx(t, doArgs("echo one && echo two"), "")
+	if rc := commands.Do(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "one")
+	contains(t, out.String(), "two")
 }
