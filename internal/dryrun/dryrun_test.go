@@ -160,3 +160,10 @@ func TestPrintTableColumnsAdaptToWidth(t *testing.T) {
 		t.Fatalf("narrow terminal must produce more rows: %d vs %d", len(narrow), len(wide))
 	}
 }
+
+func TestDryDoQuotesMultipleArgs(t *testing.T) {
+	a := ns()
+	a.Action = []string{"git", "commit", "-m", "two words"}
+	out := render(func(b *bytes.Buffer) { Do(b, a, []string{"a"}) })
+	mustContain(t, out, "cd <repo-name> && git commit -m 'two words'")
+}

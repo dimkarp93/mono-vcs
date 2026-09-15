@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"strings"
 
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/dryrun"
@@ -18,7 +17,7 @@ func Do(ctx *app.Context) int {
 		output.Die(ctx.Stderr, "action is required, e.g.: mono-vcs do git status -s")
 		return 1
 	}
-	action := strings.Join(a.Action, " ")
+	action := a.ShellAction()
 	local := selectLocal(ctx)
 	if len(local) == 0 {
 		fmt.Fprintln(out, "no local git repositories found under current directory")
