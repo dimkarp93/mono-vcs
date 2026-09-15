@@ -1,6 +1,9 @@
 package app
 
-import "io"
+import (
+	"io"
+	"strings"
+)
 
 type Args struct {
 	Command string
@@ -55,4 +58,25 @@ type Context struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	TokenFunc func(optional bool) (string, error)
+}
+
+func (a *Args) ShellAction() string {
+	if len(a.Action) == 0 {
+		return ""
+	}
+	if len(a.Action) == 1 {
+		return a.Action[0]
+	}
+	parts := make([]string, len(a.Action))
+	for i, arg := range a.Action {
+		parts[i] = shellQuote(arg)
+	}
+	return strings.Join(parts, " ")
+}
+
+func shellQuote(s string) string {
+	if s != "" && !strings.ContainsAny(s, " \t\n\r\"'\\$`&|;<>()*?[]{}#~!") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

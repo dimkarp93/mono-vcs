@@ -185,7 +185,7 @@ func Cancel(w io.Writer, a *app.Args, repos []string) {
 }
 
 func Do(w io.Writer, a *app.Args, repos []string) {
-	action := strings.Join(a.Action, " ")
+	action := a.ShellAction()
 	header(w, "do "+action, repos)
 	fmt.Fprintf(w, "  cd <repo-name> && %s\n", action)
 }
