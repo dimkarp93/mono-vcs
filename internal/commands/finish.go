@@ -11,7 +11,7 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
-func Cancel(ctx *app.Context) int {
+func Finish(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
 	if !hasGit() {
@@ -26,14 +26,15 @@ func Cancel(ctx *app.Context) int {
 		return 0
 	}
 	if a.DryRun {
-		dryrun.Cancel(out, a, local)
+		dryrun.Finish(out, a, local)
 		return 0
 	}
 
 	defs := resolveDefaults(ctx, local, nil)
 
 	jobs := a.GetJobs()
-	fmt.Fprintf(out, "cancelling `%s` (fallback to the default branch + pull if checked out) in %d repo(s) (jobs=%d)\n", branch, len(local), jobs)
+	fmt.Fprintf(out, "finishing `%s` (discard local changes, switch to the default branch + pull, delete) in %d repo(s) (jobs=%d)\n",
+		branch, len(local), jobs)
 
 	results := make(chan gitops.Result, len(local))
 	sem := make(chan struct{}, jobs)
@@ -53,14 +54,13 @@ func Cancel(ctx *app.Context) int {
 				results <- gitops.Result{Path: p, Status: "default"}
 				return
 			}
-			results <- gitops.CancelOne(p, branch, main, a.GLToken)
+			results <- gitops.FinishOne(p, branch, main, a.GLToken)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
 
 	deleted, absent, isDefault := 0, 0, 0
 	var unresolved []string
-	var dirty []string
 	var failed [][2]string
 	done, total := 0, len(local)
 	for res := range results {
@@ -80,23 +80,15 @@ func Cancel(ctx *app.Context) int {
 			fmt.Fprintf(out, "[%d/%d] default    %s — `%s` is the default branch here\n", done, total, res.Path, branch)
 		case "unresolved":
 			unresolved = append(unresolved, res.Path)
-		case "dirty":
-			dirty = append(dirty, res.Path)
 		default:
 			failed = append(failed, [2]string{res.Path, res.Detail})
 		}
 	}
 
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "deleted: %d, branch absent: %d, is-default: %d, unresolved: %d, dirty: %d, failed: %d\n", deleted, absent, isDefault, len(unresolved), len(dirty), len(failed))
+	fmt.Fprintf(out, "deleted: %d, branch absent: %d, is-default: %d, unresolved: %d, failed: %d\n",
+		deleted, absent, isDefault, len(unresolved), len(failed))
 	reportUnresolved(ctx.Stderr, unresolved)
-	if len(dirty) > 0 {
-		sort.Strings(dirty)
-		fmt.Fprintf(ctx.Stderr, "\nskipped — uncommitted changes while `%s` is checked out (%d):\n", branch, len(dirty))
-		for _, p := range dirty {
-			fmt.Fprintf(ctx.Stderr, "  %s\n", p)
-		}
-	}
 	if len(failed) > 0 {
 		sort.Slice(failed, func(i, j int) bool { return failed[i][0] < failed[j][0] })
 		fmt.Fprintf(ctx.Stderr, "\nbranch delete failed (%d):\n", len(failed))
@@ -104,7 +96,7 @@ func Cancel(ctx *app.Context) int {
 			fmt.Fprintf(ctx.Stderr, "  %s: %s\n", f[0], f[1])
 		}
 	}
-	if len(unresolved) > 0 || len(dirty) > 0 || len(failed) > 0 {
+	if len(unresolved) > 0 || len(failed) > 0 {
 		return 1
 	}
 	return 0

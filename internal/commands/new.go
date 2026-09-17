@@ -33,7 +33,8 @@ func New(ctx *app.Context) int {
 	defs := resolveDefaults(ctx, local, nil)
 
 	jobs := a.GetJobs()
-	fmt.Fprintf(out, "creating `%s` from the default branch (local only) in %d repo(s) (jobs=%d)\n", branch, len(local), jobs)
+	fmt.Fprintf(out, "switching to `%s` (created off the default branch where missing, local changes carried over) in %d repo(s) (jobs=%d)\n",
+		branch, len(local), jobs)
 
 	results := make(chan gitops.Result, len(local))
 	sem := make(chan struct{}, jobs)
@@ -58,20 +59,28 @@ func New(ctx *app.Context) int {
 	}
 	go func() { wg.Wait(); close(results) }()
 
-	created, exists, absent, isDefault := 0, 0, 0, 0
+	created, switched, already, absent, isDefault := 0, 0, 0, 0, 0
 	var unresolved []string
-	var dirty []string
+	var conflicts [][2]string
 	var failed [][2]string
 	done, total := 0, len(local)
 	for res := range results {
 		done++
 		switch res.Status {
-		case "created":
-			created++
-			fmt.Fprintf(out, "[%d/%d] created    %s\n", done, total, res.Path)
-		case "exists":
-			exists++
-			fmt.Fprintf(out, "[%d/%d] exists     %s — already has `%s`\n", done, total, res.Path, branch)
+		case "created", "switched":
+			if res.Status == "created" {
+				created++
+			} else {
+				switched++
+			}
+			line := fmt.Sprintf("[%d/%d] %-10s %s", done, total, res.Status, res.Path)
+			if res.Detail != "" {
+				line += " — " + res.Detail
+			}
+			fmt.Fprintln(out, line)
+		case "already":
+			already++
+			fmt.Fprintf(out, "[%d/%d] already    %s — already on `%s`\n", done, total, res.Path, branch)
 		case "absent":
 			absent++
 			fmt.Fprintf(out, "[%d/%d] absent     %s — no local default branch to base on\n", done, total, res.Path)
@@ -80,22 +89,23 @@ func New(ctx *app.Context) int {
 			fmt.Fprintf(out, "[%d/%d] default    %s — `%s` is the default branch here\n", done, total, res.Path, branch)
 		case "unresolved":
 			unresolved = append(unresolved, res.Path)
-		case "dirty":
-			dirty = append(dirty, res.Path)
+		case "conflict":
+			conflicts = append(conflicts, [2]string{res.Path, res.Detail})
+			fmt.Fprintf(out, "[%d/%d] conflict   %s — %s\n", done, total, res.Path, res.Detail)
 		default:
 			failed = append(failed, [2]string{res.Path, res.Detail})
 		}
 	}
 
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "created: %d, already exists: %d, absent: %d, is-default: %d, unresolved: %d, dirty: %d, failed: %d\n",
-		created, exists, absent, isDefault, len(unresolved), len(dirty), len(failed))
+	fmt.Fprintf(out, "created: %d, switched: %d, already there: %d, absent: %d, is-default: %d, unresolved: %d, conflicts: %d, failed: %d\n",
+		created, switched, already, absent, isDefault, len(unresolved), len(conflicts), len(failed))
 	reportUnresolved(ctx.Stderr, unresolved)
-	if len(dirty) > 0 {
-		sort.Strings(dirty)
-		fmt.Fprintf(ctx.Stderr, "\nskipped due to uncommitted changes (%d):\n", len(dirty))
-		for _, p := range dirty {
-			fmt.Fprintf(ctx.Stderr, "  %s\n", p)
+	if len(conflicts) > 0 {
+		sort.Slice(conflicts, func(i, j int) bool { return conflicts[i][0] < conflicts[j][0] })
+		fmt.Fprintf(ctx.Stderr, "\nlocal changes left stashed — resolve by hand (`git stash list`) (%d):\n", len(conflicts))
+		for _, c := range conflicts {
+			fmt.Fprintf(ctx.Stderr, "  %s: %s\n", c[0], c[1])
 		}
 	}
 	if len(failed) > 0 {
@@ -105,7 +115,7 @@ func New(ctx *app.Context) int {
 			fmt.Fprintf(ctx.Stderr, "  %s: %s\n", f[0], f[1])
 		}
 	}
-	if len(unresolved) > 0 || len(dirty) > 0 || len(failed) > 0 {
+	if len(unresolved) > 0 || len(conflicts) > 0 || len(failed) > 0 {
 		return 1
 	}
 	return 0

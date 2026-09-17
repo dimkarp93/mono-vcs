@@ -144,12 +144,18 @@ func New(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
 	header(w, "new "+branch, repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
-	fmt.Fprintln(w, "  Условие: если есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
 	fmt.Fprintf(w, "  Условие: если `%s` — дефолтная ветка репозитория — пропустить (default).\n", branch)
-	fmt.Fprintf(w, "  Условие: если ветка `%s` уже существует локально — пропустить (exists).\n", branch)
-	fmt.Fprintln(w, "  Условие: если нет локальной <default-branch> — пропустить (absent).")
+	fmt.Fprintf(w, "  Условие: если репозиторий уже на `%s` — пропустить (already), изменения и так на месте.\n", branch)
+	fmt.Fprintf(w, "  Условие: если ветки `%s` нет и нет локальной <default-branch> — пропустить (absent).\n", branch)
 	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintf(w, "    git -C <repo-name> checkout -b %s <default-branch>   # создаётся только локально, без push\n", branch)
+	fmt.Fprintln(w, "    Условие: если есть незакоммиченные или неотслеживаемые файлы")
+	fmt.Fprintf(w, "      git -C <repo-name> stash push --include-untracked -m \"mono-vcs new %s\"\n", branch)
+	fmt.Fprintf(w, "    Условие: если ветка `%s` уже существует локально\n", branch)
+	fmt.Fprintf(w, "      git -C <repo-name> checkout %s\n", branch)
+	fmt.Fprintln(w, "    Иначе:")
+	fmt.Fprintf(w, "      git -C <repo-name> checkout -b %s <default-branch>   # создаётся только локально, без push\n", branch)
+	fmt.Fprintln(w, "    Условие: если изменения стешились")
+	fmt.Fprintln(w, "      git -C <repo-name> stash pop   # при конфликте стеш остаётся, репо попадёт в conflicts")
 }
 
 func Switch(w io.Writer, a *app.Args, repos []string) {
@@ -169,19 +175,44 @@ func Switch(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "      git -C <repo-name> pull --ff-only --quiet")
 }
 
-func Cancel(w io.Writer, a *app.Args, repos []string) {
+func Finish(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
-	header(w, "cancel "+branch, repos)
+	header(w, "finish "+branch, repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
 	fmt.Fprintf(w, "  Условие: если `%s` — дефолтная ветка репозитория — пропустить (default).\n", branch)
 	fmt.Fprintf(w, "  Условие: если локальной ветки `%s` нет — пропустить молча.\n", branch)
-	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintf(w, "    Условие: если `%s` — текущая ветка\n", branch)
-	fmt.Fprintln(w, "      Условие: если есть незакоммиченные изменения — пропустить (попадёт в dirty-список).")
-	fmt.Fprintln(w, "      Иначе:")
-	fmt.Fprintln(w, "        git -C <repo-name> checkout <default-branch>")
-	fmt.Fprintln(w, "        git -C <repo-name> pull --ff-only --quiet")
+	fmt.Fprintln(w, "  Иначе (ветка удаляется независимо от незакоммиченных и неотслеживаемых файлов):")
+	fmt.Fprintln(w, "    Условие: если есть незакоммиченные или неотслеживаемые файлы")
+	fmt.Fprintln(w, "      git -C <repo-name> reset --hard HEAD")
+	fmt.Fprintln(w, "      git -C <repo-name> clean -fd        # игнорируемые файлы сохраняются")
+	fmt.Fprintln(w, "    Условие: если текущая ветка ≠ <default-branch>")
+	fmt.Fprintln(w, "      git -C <repo-name> checkout <default-branch>")
+	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
 	fmt.Fprintf(w, "    git -C <repo-name> branch -D %s\n", branch)
+}
+
+func Done(w io.Writer, a *app.Args, repos []string) {
+	header(w, "done", repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
+	fmt.Fprintln(w, "  Команда применяется ко всем репозиториям: -repo и -feat она не принимает.")
+	fmt.Fprintln(w, "  1. git -C <repo-name> fetch --prune --quiet origin")
+	fmt.Fprintln(w, "     При ошибке fetch репозиторий исключается целиком (ветки по устаревшим рефам не удаляются).")
+	fmt.Fprintln(w, "  2. Точка сравнения <target> — origin/<default-branch>, а если такого рефа нет — <default-branch>.")
+	fmt.Fprintln(w, "  3. Кандидаты — все локальные ветки, кроме <default-branch>.")
+	fmt.Fprintln(w, "  4. Ветка <B> считается завершённой, если выполнены оба условия:")
+	fmt.Fprintln(w, "     а. если <B> — текущая ветка, рабочее дерево чистое (нет незакоммиченных и неотслеживаемых файлов);")
+	fmt.Fprintln(w, "     б. git -C <repo-name> merge-base --is-ancestor <B> <target> вернул 0 —")
+	fmt.Fprintln(w, "        все коммиты <B> уже лежат в истории дефолтной ветки.")
+	if a.Yes {
+		fmt.Fprintln(w, "  5. -y передан — удалить без подтверждения")
+	} else {
+		fmt.Fprintln(w, "  5. по каждому репозиторию спросить подтверждение ([y]es / [a] yes-all / [s]kip / [sa] skip-all)")
+	}
+	fmt.Fprintln(w, "  6. При согласии для каждой такой ветки:")
+	fmt.Fprintln(w, "     Условие: если <B> — текущая ветка")
+	fmt.Fprintln(w, "       git -C <repo-name> checkout <default-branch>")
+	fmt.Fprintln(w, "       git -C <repo-name> pull --ff-only --quiet")
+	fmt.Fprintln(w, "     git -C <repo-name> branch -D <B>")
 }
 
 func Do(w io.Writer, a *app.Args, repos []string) {

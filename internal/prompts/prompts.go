@@ -119,6 +119,16 @@ func (p *Prompter) Prune(path string, count int) (string, error) {
 	return p.forceLoop(prompt)
 }
 
+func (p *Prompter) Done(path string, count int) (string, error) {
+	noun := "branches"
+	if count == 1 {
+		noun = "branch"
+	}
+	prompt := fmt.Sprintf("delete %d merged %s in %q?\n"+
+		"  [y]es  [a] yes to all  [s]kip  [sa] skip to all: ", count, noun, path)
+	return p.forceLoop(prompt)
+}
+
 func (p *Prompter) ForceDelete(path string) (string, error) {
 	prompt := fmt.Sprintf("%q exists but is not a git repo — delete it and clone?\n"+
 		"  [y]es  [a] yes to all  [s]kip  [sa] skip to all: ", path)

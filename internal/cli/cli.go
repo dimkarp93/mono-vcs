@@ -46,7 +46,8 @@ func DefaultCommands() map[string]Handler {
 		"features":       commands.Features,
 		"do":             commands.Do,
 		"switch":         commands.Switch,
-		"cancel":         commands.Cancel,
+		"finish":         commands.Finish,
+		"done":           commands.Done,
 		"new":            commands.New,
 		"mr":             commands.MR,
 		"init":           commands.Init,
@@ -66,15 +67,15 @@ func has(set []string, s string) bool {
 
 var (
 	jobsCommands = []string{"list", "clone", "pull", "update", "stash",
-		"unstash", "switch", "clear-stash", "cancel", "new", "prune", "default-branch", "mr"}
+		"unstash", "switch", "clear-stash", "finish", "done", "new", "prune", "default-branch", "mr"}
 	glURLCommands = []string{"list", "clone", "pull", "update", "switch",
-		"cancel", "new", "features", "default-branch", "mr"}
+		"finish", "done", "new", "features", "default-branch", "mr"}
 )
 
 var positionalArgs = map[string]string{
 	"new":    "<feat-name>",
 	"switch": "[branch]",
-	"cancel": "<branch>",
+	"finish": "<branch>",
 	"mr":     "[branch]",
 	"do":     "<command>...",
 }
@@ -114,7 +115,8 @@ func (r *Runner) Run(argv []string) int {
 			return 1
 		}
 		a.GLToken = tok
-	case a.Command == "update" || a.Command == "switch" || a.Command == "cancel" || a.Command == "mr":
+	case a.Command == "update" || a.Command == "switch" || a.Command == "finish" ||
+		a.Command == "mr" || a.Command == "done":
 		if a.DryRun {
 			a.GLToken = ""
 		} else {
@@ -209,10 +211,15 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		jobs()
 		repo()
 		dryRun()
-	case "cancel":
+	case "finish":
 		jobs()
 		repo()
 		dryRun()
+	case "done":
+		jobs()
+		dryRun()
+		fs.BoolVar(&a.Yes, "yes", false, "auto-confirm")
+		fs.BoolVar(&a.Yes, "y", false, "auto-confirm")
 	case "new":
 		jobs()
 		repo()
@@ -225,7 +232,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	}
 
 	switch cmd {
-	case "switch", "cancel", "new", "mr":
+	case "switch", "finish", "new", "mr":
 
 		pos, err := parseIntermixed(fs, argv[1:])
 		if err != nil {
@@ -281,7 +288,7 @@ var commandGroups = []commandGroup{
 	{
 		"Feature branches",
 		"create, switch, inspect and drop feature branches across every repo",
-		[]string{"features", "new", "switch", "mr", "cancel"},
+		[]string{"features", "new", "switch", "mr", "done", "finish"},
 	},
 	{
 		"Repositories",
@@ -302,10 +309,11 @@ var commandGroups = []commandGroup{
 
 var commandSummaries = map[string]string{
 	"features":       "list feature branches across repos",
-	"new":            "create a feature branch off the default branch in every repo (local only)",
+	"new":            "switch every repo to a feature branch, creating it off the default branch and carrying local changes over",
 	"switch":         "switch every repo to a branch (default branch when omitted)",
 	"mr":             "push the feature branch everywhere it exists and open merge requests",
-	"cancel":         "delete a feature branch and return to the default branch",
+	"finish":         "discard local changes, return to the default branch and delete a feature branch",
+	"done":           "delete every local feature branch already merged into the default branch",
 	"clone":          "clone every GitLab project locally",
 	"default-branch": "show the detected default branch of every repo",
 	"pull":           "fast-forward the default branch against GitLab",
