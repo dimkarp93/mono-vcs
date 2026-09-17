@@ -51,7 +51,7 @@ func TestSubcommandsRegistered(t *testing.T) {
 		"default-branch": true,
 		"stash":          true, "unstash": true, "clear-stash": true, "history-stash": true,
 		"prune": true, "features": true, "do": true, "switch": true,
-		"cancel": true, "new": true, "mr": true, "init": true,
+		"finish": true, "done": true, "new": true, "mr": true, "init": true,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
@@ -247,11 +247,34 @@ func TestSwitchWithoutBranchIsAllowed(t *testing.T) {
 	}
 }
 
-func TestCancelStillRequiresBranch(t *testing.T) {
+func TestFinishStillRequiresBranch(t *testing.T) {
 	r, c := newRunner(t)
-	r.Commands["cancel"] = c.handler
-	if rc := r.Run([]string{"cancel"}); rc != 2 {
+	r.Commands["finish"] = c.handler
+	if rc := r.Run([]string{"finish"}); rc != 2 {
 		t.Fatalf("rc=%d", rc)
+	}
+}
+
+func TestDoneRejectsRepoAndFeatFlags(t *testing.T) {
+	for _, flag := range []string{"-repo", "-feat"} {
+		r, c := newRunnerWithGLURL(t)
+		r.Commands["done"] = c.handler
+		r.TokenFunc = func(bool) (string, error) { return "", nil }
+		if rc := r.Run([]string{"done", flag, "api"}); rc != 2 {
+			t.Fatalf("%s: rc=%d", flag, rc)
+		}
+	}
+}
+
+func TestDoneTakesNoPositionalArgs(t *testing.T) {
+	r, c := newRunnerWithGLURL(t)
+	r.Commands["done"] = c.handler
+	r.TokenFunc = func(bool) (string, error) { return "", nil }
+	if rc := r.Run([]string{"done", "MVPAY-290"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if c.args.Branch != "" {
+		t.Fatalf("branch=%q", c.args.Branch)
 	}
 }
 

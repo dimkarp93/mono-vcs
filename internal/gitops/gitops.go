@@ -354,57 +354,168 @@ func SwitchOne(path, branch, mainBranch, token string) Result {
 	return Result{path, "synced-main", fmt.Sprintf("on %s (%s)", mainBranch, state)}
 }
 
-func CancelOne(path, branch, mainBranch, token string) Result {
+func pullDefault(path, mainBranch, token string) (string, string, bool) {
+	args := []string{"-C", path}
+	args = append(args, GitExtraHeaderArgs(token)...)
+	args = append(args, "pull", "--ff-only", "--quiet")
+	out, errOut, rc := runGit(args...)
+	if rc != 0 {
+		return "", firstNonEmpty(errOut, out), false
+	}
+	if strings.TrimSpace(out+errOut) != "" {
+		return "updated", "", true
+	}
+	return "up-to-date", "", true
+}
+
+func hardClean(path string) (int, string, bool) {
+	targets, err := PruneTargets(path)
+	if err != nil {
+		return 0, err.Error(), false
+	}
+	if len(targets) == 0 {
+		return 0, "", true
+	}
+	if out, errOut, rc := runGit("-C", path, "reset", "--hard", "HEAD"); rc != 0 {
+		return 0, firstNonEmpty(errOut, out), false
+	}
+	if out, errOut, rc := runGit("-C", path, "clean", "-fd"); rc != 0 {
+		return 0, firstNonEmpty(errOut, out), false
+	}
+	return len(targets), "", true
+}
+
+func FinishOne(path, branch, mainBranch, token string) Result {
 	if _, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch); rc != 0 {
 		return Result{path, "absent", ""}
 	}
-	detail := ""
-	if CurrentBranch(path) == branch {
-		if IsDirty(path) {
-			return Result{path, "dirty", fmt.Sprintf("uncommitted changes — cannot leave `%s` to delete it", branch)}
-		}
-		if !HasBranch(path, mainBranch) {
-			return Result{path, "failed", fmt.Sprintf("no `%s` to fall back to", mainBranch)}
-		}
+	if !HasBranch(path, mainBranch) {
+		return Result{path, "failed", fmt.Sprintf("no `%s` to fall back to", mainBranch)}
+	}
+
+	var parts []string
+	discarded, detail, ok := hardClean(path)
+	if !ok {
+		return Result{path, "failed", detail}
+	}
+	if discarded > 0 {
+		parts = append(parts, fmt.Sprintf("discarded %s", items(discarded)))
+	}
+
+	if CurrentBranch(path) != mainBranch {
 		out, errOut, rc := runGit("-C", path, "checkout", mainBranch)
 		if rc != 0 {
 			return Result{path, "failed", fmt.Sprintf("checkout %s: %s", mainBranch, firstNonEmpty(errOut, out))}
 		}
-		args := []string{"-C", path}
-		args = append(args, GitExtraHeaderArgs(token)...)
-		args = append(args, "pull", "--ff-only", "--quiet")
-		out2, errOut2, rc2 := runGit(args...)
-		if rc2 != 0 {
-			return Result{path, "failed", fmt.Sprintf("pull %s: %s", mainBranch, firstNonEmpty(errOut2, out2))}
+	}
+	state, detail, ok := pullDefault(path, mainBranch, token)
+	if !ok {
+		return Result{path, "failed", fmt.Sprintf("pull %s: %s", mainBranch, detail)}
+	}
+	parts = append(parts, fmt.Sprintf("switched to `%s` (%s)", mainBranch, state))
+
+	out, errOut, rc := runGit("-C", path, "branch", "-D", branch)
+	if rc != 0 {
+		return Result{path, "failed", firstNonEmpty(errOut, out)}
+	}
+	parts = append(parts, fmt.Sprintf("removed `%s`", branch))
+	return Result{path, "deleted", strings.Join(parts, ", ")}
+}
+
+func items(n int) string {
+	if n == 1 {
+		return "1 item"
+	}
+	return fmt.Sprintf("%d items", n)
+}
+
+func NewBranchOne(path, branch, mainBranch string) Result {
+	if CurrentBranch(path) == branch {
+		return Result{path, "already", ""}
+	}
+	hasBranch := LocalBranchSHA(path, branch) != ""
+	if !hasBranch && LocalBranchSHA(path, mainBranch) == "" {
+		return Result{path, "absent", ""}
+	}
+
+	stashed := false
+	if IsDirty(path) {
+		out, errOut, rc := runGit("-C", path, "stash", "push", "--include-untracked",
+			"-m", "mono-vcs new "+branch)
+		if rc != 0 {
+			return Result{path, "failed", firstNonEmpty(errOut, out)}
 		}
-		state := "up-to-date"
-		if strings.TrimSpace(out2+errOut2) != "" {
-			state = "updated"
+		stashed = true
+	}
+
+	status := "created"
+	args := []string{"-C", path, "checkout", "-b", branch, mainBranch}
+	if hasBranch {
+		status = "switched"
+		args = []string{"-C", path, "checkout", branch}
+	}
+	if out, errOut, rc := runGit(args...); rc != 0 {
+		detail := firstNonEmpty(errOut, out)
+		if stashed {
+			runGit("-C", path, "stash", "pop")
 		}
-		detail = fmt.Sprintf("switched to `%s` (%s), ", mainBranch, state)
+		return Result{path, "failed", detail}
+	}
+
+	if stashed {
+		out, errOut, rc := runGit("-C", path, "stash", "pop")
+		if rc != 0 {
+			return Result{path, "conflict", fmt.Sprintf("on `%s`, but restoring local changes failed: %s",
+				branch, firstNonEmpty(errOut, out))}
+		}
+		return Result{path, status, "carried local changes over"}
+	}
+	return Result{path, status, ""}
+}
+
+func FetchPrune(path, token string) error {
+	args := []string{"-C", path}
+	args = append(args, GitExtraHeaderArgs(token)...)
+	args = append(args, "fetch", "--prune", "--quiet", "origin")
+	out, errOut, rc := runGit(args...)
+	if rc != 0 {
+		return errors.New(firstNonEmpty(errOut, out))
+	}
+	return nil
+}
+
+func DefaultCompareRef(path, mainBranch string) string {
+	remote := "refs/remotes/origin/" + mainBranch
+	if _, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", remote); rc == 0 {
+		return remote
+	}
+	local := "refs/heads/" + mainBranch
+	if _, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", local); rc == 0 {
+		return local
+	}
+	return ""
+}
+
+func MergedInto(path, branch, target string) bool {
+	_, _, rc := runGit("-C", path, "merge-base", "--is-ancestor", "refs/heads/"+branch, target)
+	return rc == 0
+}
+
+func DeleteMergedOne(path, branch, mainBranch, token string) Result {
+	if CurrentBranch(path) == branch {
+		out, errOut, rc := runGit("-C", path, "checkout", mainBranch)
+		if rc != 0 {
+			return Result{path, "failed", fmt.Sprintf("checkout %s: %s", mainBranch, firstNonEmpty(errOut, out))}
+		}
+		if _, detail, ok := pullDefault(path, mainBranch, token); !ok {
+			return Result{path, "failed", fmt.Sprintf("pull %s: %s", mainBranch, detail)}
+		}
 	}
 	out, errOut, rc := runGit("-C", path, "branch", "-D", branch)
 	if rc != 0 {
 		return Result{path, "failed", firstNonEmpty(errOut, out)}
 	}
-	return Result{path, "deleted", detail + fmt.Sprintf("removed `%s`", branch)}
-}
-
-func NewBranchOne(path, branch, mainBranch string) Result {
-	if IsDirty(path) {
-		return Result{path, "dirty", "uncommitted changes"}
-	}
-	if _, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", "refs/heads/"+branch); rc == 0 {
-		return Result{path, "exists", ""}
-	}
-	if _, _, rc := runGit("-C", path, "rev-parse", "--verify", "--quiet", "refs/heads/"+mainBranch); rc != 0 {
-		return Result{path, "absent", ""}
-	}
-	out, errOut, rc := runGit("-C", path, "checkout", "-b", branch, mainBranch)
-	if rc != 0 {
-		return Result{path, "failed", firstNonEmpty(errOut, out)}
-	}
-	return Result{path, "created", ""}
+	return Result{path, "deleted", ""}
 }
 
 func RemoteBranchSHA(path, branch string) string {

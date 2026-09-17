@@ -75,12 +75,28 @@ func TestDrySwitchWithoutBranch(t *testing.T) {
 	mustContain(t, out, "checkout <default-branch>")
 }
 
-func TestDryCancel(t *testing.T) {
+func TestDryFinish(t *testing.T) {
 	a := ns()
 	a.Branch = "feature"
-	out := render(func(b *bytes.Buffer) { Cancel(b, a, []string{"a"}) })
-	expectHeader(t, out, "cancel feature", 1)
-	mustContain(t, out, "branch -D feature", "checkout <default-branch>")
+	out := render(func(b *bytes.Buffer) { Finish(b, a, []string{"a"}) })
+	expectHeader(t, out, "finish feature", 1)
+	mustContain(t, out, "branch -D feature", "checkout <default-branch>",
+		"reset --hard HEAD", "clean -fd")
+}
+
+func TestDryDone(t *testing.T) {
+	out := render(func(b *bytes.Buffer) { Done(b, ns(), []string{"a"}) })
+	expectHeader(t, out, "done", 1)
+	mustContain(t, out, "fetch --prune --quiet origin",
+		"merge-base --is-ancestor <B> <target>", "branch -D <B>",
+		"спросить подтверждение")
+}
+
+func TestDryDoneWithYes(t *testing.T) {
+	a := ns()
+	a.Yes = true
+	out := render(func(b *bytes.Buffer) { Done(b, a, []string{"a"}) })
+	mustContain(t, out, "-y передан")
 }
 
 func TestDryDo(t *testing.T) {
@@ -166,4 +182,13 @@ func TestDryDoQuotesMultipleArgs(t *testing.T) {
 	a.Action = []string{"git", "commit", "-m", "two words"}
 	out := render(func(b *bytes.Buffer) { Do(b, a, []string{"a"}) })
 	mustContain(t, out, "cd <repo-name> && git commit -m 'two words'")
+}
+
+func TestDryNewCarriesChangesOver(t *testing.T) {
+	a := ns()
+	a.Branch = "feature"
+	out := render(func(b *bytes.Buffer) { New(b, a, []string{"a"}) })
+	expectHeader(t, out, "new feature", 1)
+	mustContain(t, out, "stash push --include-untracked", "stash pop",
+		"checkout -b feature <default-branch>", "checkout feature")
 }

@@ -38,7 +38,7 @@ func TestNewSkipsDefaultBranch(t *testing.T) {
 	contains(t, out.String(), "is-default: 1")
 }
 
-func TestNewExistingIsNotError(t *testing.T) {
+func TestNewSwitchesToExistingBranch(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	p := testutil.MakeClonedRepo(t, ws, "p", "main")
@@ -47,19 +47,59 @@ func TestNewExistingIsNotError(t *testing.T) {
 	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
-	contains(t, out.String(), "exists")
+	contains(t, out.String(), "switched")
+	if gitops.CurrentBranch(p) != "feature" {
+		t.Fatalf("branch=%q", gitops.CurrentBranch(p))
+	}
 }
 
-func TestNewDirtyIsSkipped(t *testing.T) {
+func TestNewCarriesDirtyWorkTreeOver(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	p := testutil.MakeClonedRepo(t, ws, "p", "main")
 	writeFile(p, "README", "dirty")
-	ctx, _, errb := newCtx(t, newArgs("feature"), "")
-	if rc := commands.New(ctx); rc != 1 {
+	writeFile(p, "untracked.txt", "junk")
+	ctx, out, _ := newCtx(t, newArgs("feature"), "")
+	if rc := commands.New(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
-	contains(t, errb.String(), "uncommitted")
+	contains(t, out.String(), "carried local changes over")
+	if gitops.CurrentBranch(p) != "feature" {
+		t.Fatalf("branch=%q", gitops.CurrentBranch(p))
+	}
+	status := testutil.Run(t, p, "git", "status", "--porcelain")
+	contains(t, status, "README")
+	contains(t, status, "untracked.txt")
+}
+
+func TestNewBasesOnDefaultNotCurrentBranch(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
+	mainSHA := headSHA(t, p)
+	testutil.Run(t, p, "git", "checkout", "-b", "other")
+	testutil.Commit(t, p, "advance other", "x", "y")
+	writeFile(p, "untracked.txt", "junk")
+	ctx, _, _ := newCtx(t, newArgs("feature"), "")
+	if rc := commands.New(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if got := headSHA(t, p); got != mainSHA {
+		t.Fatalf("feature must start at the default branch tip: %q != %q", got, mainSHA)
+	}
+	contains(t, testutil.Run(t, p, "git", "status", "--porcelain"), "untracked.txt")
+}
+
+func TestNewAlreadyOnBranch(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
+	testutil.Run(t, p, "git", "checkout", "-b", "feature")
+	ctx, out, _ := newCtx(t, newArgs("feature"), "")
+	if rc := commands.New(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "already")
 }
 
 func TestNewRepoFilter(t *testing.T) {

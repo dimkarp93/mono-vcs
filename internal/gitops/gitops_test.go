@@ -440,17 +440,17 @@ func TestSwitchAbsentWhenNoBranchNoMain(t *testing.T) {
 	}
 }
 
-func TestCancelAbsent(t *testing.T) {
+func TestFinishAbsent(t *testing.T) {
 	local, _ := testutil.LinkedRepo(t, t.TempDir())
-	if res := gitops.CancelOne(local, "ghost", "main", ""); res.Status != "absent" {
+	if res := gitops.FinishOne(local, "ghost", "main", ""); res.Status != "absent" {
 		t.Fatalf("status=%q", res.Status)
 	}
 }
 
-func TestCancelDeletesNonCurrent(t *testing.T) {
+func TestFinishDeletesNonCurrent(t *testing.T) {
 	local, _ := testutil.LinkedRepo(t, t.TempDir())
 	testutil.Run(t, local, "git", "branch", "feature")
-	res := gitops.CancelOne(local, "feature", "main", "")
+	res := gitops.FinishOne(local, "feature", "main", "")
 	if res.Status != "deleted" || !contains(res.Detail, "feature") {
 		t.Fatalf("got %+v", res)
 	}
@@ -459,21 +459,102 @@ func TestCancelDeletesNonCurrent(t *testing.T) {
 	}
 }
 
-func TestCancelCurrentClean(t *testing.T) {
+func TestFinishCurrentClean(t *testing.T) {
 	local, _ := testutil.LinkedRepo(t, t.TempDir())
 	testutil.Run(t, local, "git", "checkout", "-b", "feature")
-	res := gitops.CancelOne(local, "feature", "main", "")
+	res := gitops.FinishOne(local, "feature", "main", "")
 	if res.Status != "deleted" || gitops.CurrentBranch(local) != "main" || !contains(res.Detail, "feature") {
 		t.Fatalf("got %+v branch=%q", res, gitops.CurrentBranch(local))
 	}
 }
 
-func TestCancelCurrentDirty(t *testing.T) {
+func TestFinishCurrentDirtyDiscardsAndDeletes(t *testing.T) {
 	local, _ := testutil.LinkedRepo(t, t.TempDir())
 	testutil.Run(t, local, "git", "checkout", "-b", "feature")
 	write(t, local, "README", "dirty")
-	if res := gitops.CancelOne(local, "feature", "main", ""); res.Status != "dirty" {
+	write(t, local, "untracked.txt", "junk")
+	res := gitops.FinishOne(local, "feature", "main", "")
+	if res.Status != "deleted" || !contains(res.Detail, "discarded 2 items") {
+		t.Fatalf("got %+v", res)
+	}
+	if gitops.CurrentBranch(local) != "main" || gitops.IsDirty(local) {
+		t.Fatalf("branch=%q dirty=%v", gitops.CurrentBranch(local), gitops.IsDirty(local))
+	}
+	if gitops.HasBranch(local, "feature") {
+		t.Fatal("feature should be gone")
+	}
+}
+
+func TestFinishDirtyOnOtherBranchStillCleans(t *testing.T) {
+	local, _ := testutil.LinkedRepo(t, t.TempDir())
+	testutil.Run(t, local, "git", "branch", "feature")
+	write(t, local, "README", "dirty")
+	if res := gitops.FinishOne(local, "feature", "main", ""); res.Status != "deleted" {
 		t.Fatalf("status=%q", res.Status)
+	}
+	if gitops.IsDirty(local) {
+		t.Fatal("expected a clean tree")
+	}
+}
+
+func TestFinishFailsWithoutDefaultBranch(t *testing.T) {
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "trunk")
+	testutil.Run(t, r, "git", "branch", "feature")
+	if res := gitops.FinishOne(r, "feature", "main", ""); res.Status != "failed" {
+		t.Fatalf("status=%q", res.Status)
+	}
+}
+
+func TestMergedIntoAncestor(t *testing.T) {
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
+	testutil.Run(t, r, "git", "branch", "feature")
+	if !gitops.MergedInto(r, "feature", "refs/heads/main") {
+		t.Fatal("a branch at the tip of main must count as merged")
+	}
+}
+
+func TestMergedIntoRejectsUniqueCommits(t *testing.T) {
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
+	testutil.Run(t, r, "git", "checkout", "-b", "feature")
+	testutil.Commit(t, r, "work", "f", "f")
+	if gitops.MergedInto(r, "feature", "refs/heads/main") {
+		t.Fatal("a branch with its own commits must not count as merged")
+	}
+}
+
+func TestMergedIntoAfterFastForward(t *testing.T) {
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
+	testutil.Run(t, r, "git", "checkout", "-b", "feature")
+	testutil.Commit(t, r, "work", "f", "f")
+	testutil.Run(t, r, "git", "checkout", "main")
+	testutil.Run(t, r, "git", "merge", "--ff-only", "feature")
+	if !gitops.MergedInto(r, "feature", "refs/heads/main") {
+		t.Fatal("expected merged after fast-forward")
+	}
+}
+
+func TestDefaultCompareRefPrefersOrigin(t *testing.T) {
+	local, _ := testutil.LinkedRepo(t, t.TempDir())
+	if got := gitops.DefaultCompareRef(local, "main"); got != "refs/remotes/origin/main" {
+		t.Fatalf("got %q", got)
+	}
+	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
+	if got := gitops.DefaultCompareRef(r, "main"); got != "refs/heads/main" {
+		t.Fatalf("got %q", got)
+	}
+	if got := gitops.DefaultCompareRef(r, "nope"); got != "" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestDeleteMergedOneLeavesDefaultCheckedOut(t *testing.T) {
+	local, _ := testutil.LinkedRepo(t, t.TempDir())
+	testutil.Run(t, local, "git", "checkout", "-b", "feature")
+	if res := gitops.DeleteMergedOne(local, "feature", "main", ""); res.Status != "deleted" {
+		t.Fatalf("got %+v", res)
+	}
+	if gitops.CurrentBranch(local) != "main" || gitops.HasBranch(local, "feature") {
+		t.Fatalf("branch=%q", gitops.CurrentBranch(local))
 	}
 }
 
