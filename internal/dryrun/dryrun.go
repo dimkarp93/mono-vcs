@@ -221,7 +221,7 @@ func Do(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintf(w, "  cd <repo-name> && %s\n", action)
 }
 
-func MR(w io.Writer, a *app.Args, branch string, repos []string) {
+func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	header(w, "mr "+branch, repos)
 	fmt.Fprintf(w, "  Фича — `%s`; ниже перечислены все репозитории, в которых она есть.\n", branch)
 	fmt.Fprintln(w, "  Условие: если хотя бы в одном из них есть незакоммиченные изменения — не пушить ничего.")
@@ -229,9 +229,9 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string) {
 	fmt.Fprintln(w, "  Иначе:")
 	fmt.Fprintf(w, "    git -C <repo-name> push -u origin refs/heads/%s:refs/heads/%s \\\n", branch, branch)
 	fmt.Fprintln(w, "      -o merge_request.create \\")
-	if a.Title != "" {
+	if title != "" {
 		fmt.Fprintln(w, "      -o merge_request.remove_source_branch \\")
-		fmt.Fprintf(w, "      -o merge_request.title=%s\n", a.Title)
+		fmt.Fprintf(w, "      -o merge_request.title=%s\n", title)
 	} else {
 		fmt.Fprintln(w, "      -o merge_request.remove_source_branch")
 	}

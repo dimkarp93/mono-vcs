@@ -55,6 +55,22 @@ func listColumns(paths []string, local map[string]bool, info map[string]localInf
 	return pathW, branchW
 }
 
+func listColor(inRemote, inLocal, onFeature bool, sync int) string {
+	switch {
+	case inRemote && inLocal:
+		if onFeature {
+			return colors.Blue
+		}
+		if sync == 0 {
+			return colors.Yellow
+		}
+		return colors.Green
+	case inLocal:
+		return colors.Red
+	}
+	return colors.Gray
+}
+
 func List(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
@@ -196,21 +212,11 @@ func List(ctx *app.Context) int {
 			dirty = ci.dirty
 		}
 		onFeature := cur != "" && cur != defaultOf[path]
-		color := colors.Gray
-		switch {
-		case inRemote && inLocal:
-			color = colors.Green
-			if onFeature {
-				color = colors.Blue
-			} else if v, ok := inSync[path]; ok && v == 0 {
-				color = colors.Yellow
-			}
-		case inLocal:
-			color = colors.Red
-			if onFeature {
-				color = colors.Blue
-			}
+		syncCode, ok := inSync[path]
+		if !ok {
+			syncCode = -1
 		}
+		color := listColor(inRemote, inLocal, onFeature, syncCode)
 		name := output.Truncate(path, pathW)
 		line := output.PadColored(name, colors.Colorize(name, color, useColor), pathW)
 		if inLocal && branchW > 0 {
@@ -256,8 +262,8 @@ func List(ctx *app.Context) int {
 	fmt.Fprintln(out, "legend:")
 	fmt.Fprintf(out, "  %s  — local & remote, local default branch matches remote\n", colors.Colorize("green", colors.Green, useColor))
 	fmt.Fprintf(out, "  %s — local & remote, local default branch differs from remote (likely behind)\n", colors.Colorize("yellow", colors.Yellow, useColor))
-	fmt.Fprintf(out, "  %s   — local repo currently on a feature branch (not its default branch)\n", colors.Colorize("blue", colors.Blue, useColor))
-	fmt.Fprintf(out, "  %s    — local only\n", colors.Colorize("red", colors.Red, useColor))
+	fmt.Fprintf(out, "  %s   — local & remote, local repo currently on a feature branch (not its default branch)\n", colors.Colorize("blue", colors.Blue, useColor))
+	fmt.Fprintf(out, "  %s    — local only (no remote repository)\n", colors.Colorize("red", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote only\n", colors.Colorize("gray", colors.Gray, useColor))
 	fmt.Fprintf(out, "  %s — current branch of local repo\n", colors.Colorize("[branch]", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s        — uncommitted changes in working tree\n", colors.Colorize("✗", colors.Yellow, useColor))
