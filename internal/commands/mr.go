@@ -93,6 +93,29 @@ func (s featureScan) inferFeature() (string, []string, error) {
 	}
 }
 
+func ticketOf(branch string) (string, bool) {
+	parts := strings.SplitN(branch, "-", 3)
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return "", false
+	}
+	for _, r := range parts[1] {
+		if r < '0' || r > '9' {
+			return "", false
+		}
+	}
+	return parts[0] + "-" + parts[1], true
+}
+
+func mrTitle(ticket, title string) string {
+	if strings.HasPrefix(strings.TrimSpace(title), "[") {
+		return title
+	}
+	if title == "" {
+		return "[" + ticket + "]"
+	}
+	return "[" + ticket + "] " + title
+}
+
 func MR(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
@@ -128,8 +151,15 @@ func MR(ctx *app.Context) int {
 		return 1
 	}
 
+	ticket, ok := ticketOf(feature)
+	if !ok {
+		output.Die(ctx.Stderr, fmt.Sprintf("branch `%s` does not look like a ticket branch — expected `<project>-<number>-<description>`", feature))
+		return 1
+	}
+	title := mrTitle(ticket, a.Title)
+
 	if a.DryRun {
-		dryrun.MR(out, a, feature, featureRepos)
+		dryrun.MR(out, a, feature, featureRepos, title)
 		return 0
 	}
 
@@ -157,7 +187,7 @@ func MR(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results <- gitops.PushMROne(p, feature, a.GLToken, a.Title)
+			results <- gitops.PushMROne(p, feature, a.GLToken, title)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()

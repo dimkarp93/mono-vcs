@@ -73,22 +73,6 @@ func TestFeatureColumnsGrowWithTerminal(t *testing.T) {
 	}
 }
 
-func TestWrapCSVCountsRunesAndTruncates(t *testing.T) {
-	lines := WrapCSV([]string{"группа/репо-один", "группа/репо-два"}, 20)
-	for _, l := range lines {
-		if w := DisplayWidth(l); w > 20 {
-			t.Fatalf("wrapped line too wide (%d): %q", w, l)
-		}
-	}
-	if len(lines) != 2 {
-		t.Fatalf("expected 2 lines, got %d: %q", len(lines), lines)
-	}
-	long := WrapCSV([]string{strings.Repeat("x", 50)}, 10)
-	if len(long) != 1 || DisplayWidth(long[0]) > 10 {
-		t.Fatalf("overlong item not truncated: %q", long)
-	}
-}
-
 func stripANSI(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); {
@@ -112,4 +96,56 @@ func atoi(t *testing.T, s string) int {
 		n = n*10 + int(r-'0')
 	}
 	return n
+}
+
+func TestItemsPutsEachRepoOnOwnLine(t *testing.T) {
+	lines := Items([]string{"группа/репо-один", "группа/репо-два"}, 20)
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %q", len(lines), lines)
+	}
+	for _, l := range lines {
+		if w := DisplayWidth(l); w > 20 {
+			t.Fatalf("line too wide (%d): %q", w, l)
+		}
+		if strings.Contains(l, ",") {
+			t.Fatalf("repos still joined by comma: %q", l)
+		}
+	}
+	long := Items([]string{strings.Repeat("x", 50)}, 10)
+	if len(long) != 1 || DisplayWidth(long[0]) > 10 {
+		t.Fatalf("overlong item not truncated: %q", long)
+	}
+	if got := Items(nil, 10); len(got) != 1 || got[0] != "" {
+		t.Fatalf("empty items: %q", got)
+	}
+}
+
+func TestFeaturesTableRowPerRepo(t *testing.T) {
+	t.Setenv("COLUMNS", "100")
+	var b bytes.Buffer
+	PrintFeaturesTable(&b, []FeatureRow{
+		{Branch: "feat-x", Repos: []string{"grp/a", "grp/b", "grp/c"}, Active: []string{"grp/a"}},
+	}, false)
+	out := b.String()
+	if strings.Contains(out, ",") {
+		t.Fatalf("repos still joined by comma:\n%s", out)
+	}
+	cells := map[string]int{}
+	for _, l := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
+		parts := strings.Split(l, "│")
+		if len(parts) != 5 {
+			continue
+		}
+		if repos := strings.TrimSpace(parts[2]); repos != "" && repos != "repos" {
+			cells[repos]++
+		}
+	}
+	for _, repo := range []string{"grp/a", "grp/b", "grp/c"} {
+		if cells[repo] != 1 {
+			t.Fatalf("%s is not alone on its line:\n%s", repo, out)
+		}
+	}
+	if len(cells) != 3 {
+		t.Fatalf("expected 3 repo lines, got %d:\n%s", len(cells), out)
+	}
 }

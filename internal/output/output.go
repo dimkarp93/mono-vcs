@@ -12,34 +12,15 @@ func Die(stderr io.Writer, msg string) {
 	fmt.Fprintf(stderr, "error: %s\n", msg)
 }
 
-func WrapCSV(items []string, width int) []string {
+func Items(items []string, width int) []string {
 	if len(items) == 0 {
 		return []string{""}
 	}
-	var lines []string
-	cur := ""
-	for i, it := range items {
-		sep := ", "
-		if i == len(items)-1 {
-			sep = ""
-		}
-		token := Truncate(it, width) + sep
-		if cur != "" && DisplayWidth(cur)+DisplayWidth(token) > width {
-			lines = append(lines, trimTrailingComma(cur))
-			cur = token
-		} else {
-			cur += token
-		}
-	}
-	if cur != "" {
-		lines = append(lines, trimTrailingComma(cur))
+	lines := make([]string, 0, len(items))
+	for _, it := range items {
+		lines = append(lines, Truncate(it, width))
 	}
 	return lines
-}
-
-func trimTrailingComma(s string) string {
-	s = strings.TrimRight(s, " ")
-	return strings.TrimRight(s, ",")
 }
 
 type FeatureRow struct {
@@ -128,11 +109,11 @@ func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 		} else {
 			color = colors.Yellow
 		}
-		right := WrapCSV(r.Active, col3W)
+		right := Items(r.Active, col3W)
 		if len(r.Active) == 0 {
 			right = []string{"—"}
 		}
-		emit(r.Branch, WrapCSV(r.Repos, col2W), right, color)
+		emit(r.Branch, Items(r.Repos, col2W), right, color)
 		if i < len(rows)-1 {
 			fmt.Fprintln(w, sep)
 		}

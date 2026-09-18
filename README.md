@@ -195,7 +195,12 @@ git -C <repo> push -u origin refs/heads/<branch>:refs/heads/<branch> \
     -o merge_request.remove_source_branch
 ```
 
-С `-title <text>` добавляется ещё и `-o merge_request.title=<text>`.
+Заголовок MR всегда начинается с тикета: `-o merge_request.title=[<ticket>] <text>`,
+где `<ticket>` — начало имени ветки до второго дефиса: подходят и `MVPAY-290`,
+и `MVPAY-290-oplata` — оба дают `MVPAY-290`. Второй сегмент должен быть числом.
+Без `-title` передаётся просто `[<ticket>]`; если `-title` уже начинается с `[`,
+префикс не дублируется. Ветка, из имени которой тикет не вычленяется
+(`hotfix`, `practice-improves`), отвергается — MR не создаётся.
 
 Фича определяется однозначно, иначе команда ничего не делает:
 
@@ -302,7 +307,7 @@ mono-vcs new MVPAY-290 -repo apigateway,payments  # перейти на ветк
 mono-vcs switch my-feature                      # переключить все репо
 mono-vcs switch                                 # вернуть все репо на их дефолтную ветку
 mono-vcs mr                                     # запушить активную фичу и открыть MR везде
-mono-vcs mr MVPAY-290 -title "MVPAY-290: оплата"  # то же самое с явной веткой и заголовком MR
+mono-vcs mr MVPAY-290-oplata -title "оплата"     # то же с явной веткой; MR получит заголовок [MVPAY-290] оплата
 mono-vcs do git status -s                       # выполнить команду в каждом репо
 mono-vcs do -feat MVPAY-290 git status -s       # только репо, где есть ветка MVPAY-290
 mono-vcs do git commit -m "два слова"           # кавычки сохраняются: это один аргумент
