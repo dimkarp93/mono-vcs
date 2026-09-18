@@ -52,11 +52,11 @@ func TestMRExplicitBranchNotCheckedOutEverywhere(t *testing.T) {
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
 	b := placeLinked(t, ws, "b")
-	onBranch(t, a, "feat-x")
-	onBranch(t, b, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
+	onBranch(t, b, "PROJ-1-feat")
 	testutil.Run(t, b, "git", "checkout", "main")
 
-	ctx, out, errb := newCtx(t, mrArgs("feat-x"), "")
+	ctx, out, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
 	if rc := commands.MR(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -71,8 +71,8 @@ func TestMRInferredFromContext(t *testing.T) {
 	a := placeLinked(t, ws, "a")
 	b := placeLinked(t, ws, "b")
 	placeLinked(t, ws, "c")
-	onBranch(t, a, "feat-x")
-	onBranch(t, b, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
+	onBranch(t, b, "PROJ-1-feat")
 	allowPushOptions(t, a)
 	allowPushOptions(t, b)
 
@@ -81,11 +81,11 @@ func TestMRInferredFromContext(t *testing.T) {
 		t.Fatalf("rc=%d err=%s out=%s", rc, errb.String(), out.String())
 	}
 	o := out.String()
-	contains(t, o, "pushing `feat-x`")
+	contains(t, o, "pushing `PROJ-1-feat`")
 	contains(t, o, "pushed: 2")
 	notContains(t, o, "c")
 	for _, p := range []string{a, b} {
-		sha := strings.TrimSpace(testutil.Run(t, remoteOf(t, p), "git", "rev-parse", "refs/heads/feat-x"))
+		sha := strings.TrimSpace(testutil.Run(t, remoteOf(t, p), "git", "rev-parse", "refs/heads/PROJ-1-feat"))
 		if sha != headSHA(t, p) {
 			t.Fatalf("%s: remote sha=%s", p, sha)
 		}
@@ -96,14 +96,14 @@ func TestMRSecondRunIsUpToDate(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
-	onBranch(t, a, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
 	allowPushOptions(t, a)
 
-	ctx, _, _ := newCtx(t, mrArgs("feat-x"), "")
+	ctx, _, _ := newCtx(t, mrArgs("PROJ-1-feat"), "")
 	if rc := commands.MR(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
-	ctx2, out, _ := newCtx(t, mrArgs("feat-x"), "")
+	ctx2, out, _ := newCtx(t, mrArgs("PROJ-1-feat"), "")
 	if rc := commands.MR(ctx2); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -115,7 +115,7 @@ func TestMRAmbiguousContext(t *testing.T) {
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
 	b := placeLinked(t, ws, "b")
-	onBranch(t, a, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
 	onBranch(t, b, "feat-y")
 
 	ctx, _, errb := newCtx(t, mrArgs(""), "")
@@ -123,7 +123,7 @@ func TestMRAmbiguousContext(t *testing.T) {
 		t.Fatalf("rc=%d", rc)
 	}
 	contains(t, errb.String(), "several feature branches are checked out")
-	contains(t, errb.String(), "feat-x, feat-y")
+	contains(t, errb.String(), "PROJ-1-feat, feat-y")
 }
 
 func TestMRNoActiveFeature(t *testing.T) {
@@ -142,8 +142,8 @@ func TestMRInferredButRepoNotOnFeature(t *testing.T) {
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
 	b := placeLinked(t, ws, "b")
-	onBranch(t, a, "feat-x")
-	onBranch(t, b, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
+	onBranch(t, b, "PROJ-1-feat")
 	testutil.Run(t, b, "git", "checkout", "main")
 
 	ctx, _, errb := newCtx(t, mrArgs(""), "")
@@ -158,19 +158,19 @@ func TestMRDirtyRefusesEverything(t *testing.T) {
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
 	b := placeLinked(t, ws, "b")
-	onBranch(t, a, "feat-x")
-	onBranch(t, b, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
+	onBranch(t, b, "PROJ-1-feat")
 	allowPushOptions(t, a)
 	allowPushOptions(t, b)
 	writeFile(b, "README", "dirty")
 
-	ctx, out, errb := newCtx(t, mrArgs("feat-x"), "")
+	ctx, out, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
 	if rc := commands.MR(ctx); rc != 1 {
 		t.Fatalf("rc=%d", rc)
 	}
 	contains(t, errb.String(), "uncommitted changes")
 	notContains(t, out.String(), "pushing")
-	if remoteHasBranch(t, a, "feat-x") {
+	if remoteHasBranch(t, a, "PROJ-1-feat") {
 		t.Fatal("push happened despite dirty repo")
 	}
 }
@@ -179,7 +179,7 @@ func TestMRDryRunTouchesNothing(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
-	onBranch(t, a, "feat-x")
+	onBranch(t, a, "PROJ-1-feat")
 	args := mrArgs("")
 	args.DryRun = true
 	args.Title = "my mr"
@@ -189,10 +189,28 @@ func TestMRDryRunTouchesNothing(t *testing.T) {
 		t.Fatalf("rc=%d", rc)
 	}
 	o := out.String()
-	contains(t, o, "DRY-RUN: mr feat-x")
+	contains(t, o, "DRY-RUN: mr PROJ-1-feat")
 	contains(t, o, "merge_request.create")
-	contains(t, o, "merge_request.title=my mr")
-	if remoteHasBranch(t, a, "feat-x") {
+	contains(t, o, "merge_request.title=[PROJ-1] my mr")
+	if remoteHasBranch(t, a, "PROJ-1-feat") {
 		t.Fatal("dry-run pushed")
+	}
+}
+
+func TestMRRefusesBranchWithoutTicket(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	onBranch(t, a, "practice-improves")
+	allowPushOptions(t, a)
+
+	ctx, out, errb := newCtx(t, mrArgs("practice-improves"), "")
+	if rc := commands.MR(ctx); rc != 1 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, errb.String(), "does not look like a ticket branch")
+	notContains(t, out.String(), "pushing")
+	if remoteHasBranch(t, a, "practice-improves") {
+		t.Fatal("push happened for a branch without a ticket")
 	}
 }
