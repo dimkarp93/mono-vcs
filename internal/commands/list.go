@@ -10,7 +10,9 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/gitlab"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
+	"github.com/dimkarp93/mono-vcs/internal/remotes"
 	"github.com/dimkarp93/mono-vcs/internal/repos"
+	"github.com/dimkarp93/mono-vcs/internal/selector"
 )
 
 type localInfo struct {
@@ -28,11 +30,14 @@ func mainInSync(p gitlab.Project, localPath, glURL, token, branch string) (bool,
 	return remoteSHA == localSHA, true
 }
 
-func listColumns(paths []string, local map[string]bool, info map[string]localInfo, width int) (int, int) {
-	pathW, branchW := 0, 0
+func listColumns(paths []string, local map[string]bool, info map[string]localInfo, aliasOf map[string]string, width int) (int, int, int) {
+	pathW, branchW, remoteW := 0, 0, 0
 	for _, path := range paths {
 		if l := output.DisplayWidth(path); l > pathW {
 			pathW = l
+		}
+		if l := output.DisplayWidth(aliasOf[path]); l > remoteW {
+			remoteW = l
 		}
 		if !local[path] {
 			continue
@@ -43,16 +48,19 @@ func listColumns(paths []string, local map[string]bool, info map[string]localInf
 			}
 		}
 	}
+	if limit := width / 5; remoteW > limit {
+		remoteW = limit
+	}
 	if limit := width / 3; branchW > limit {
 		branchW = limit
 	}
-	if limit := width - branchW - 4; pathW > limit {
+	if limit := width - branchW - remoteW - 5; pathW > limit {
 		pathW = limit
 	}
 	if pathW < 1 {
 		pathW = 1
 	}
-	return pathW, branchW
+	return pathW, branchW, remoteW
 }
 
 func listColor(inRemote, inLocal, onFeature bool, sync int) string {
@@ -88,12 +96,28 @@ func List(ctx *app.Context) int {
 	}
 	local := repos.ScanLocalRepos(".")
 
+	remoteSet := remotes.New(repos.SortedKeys(local), a.GetJobs(), ctx.Stderr)
+	for path := range remote {
+		if local[path] {
+			continue
+		}
+		if url := projectsByPath[path].HTTPURLToRepo; url != "" {
+			remoteSet.Add(path, remotes.Make("origin", url))
+		}
+	}
+
 	if a.Feature != "" {
 		allowed := toSet(reposWithFeature(repos.SortedKeys(local), a.Feature, ctx.Stderr))
 		remote = intersect(remote, allowed)
 		local = intersect(local, allowed)
 	} else if len(a.Repo) > 0 {
 		allowed := toSet(repos.FilterRepos(sortedSet(unionKeys(remote, local)), a.Repo, ctx.Stderr))
+		remote = intersect(remote, allowed)
+		local = intersect(local, allowed)
+	}
+	if len(a.Remote) > 0 {
+		all := sortedSet(unionKeys(remote, local))
+		allowed := toSet(remoteSet.Match(all, a.Remote, selector.CustomAliases(ctx), ctx.Stderr))
 		remote = intersect(remote, allowed)
 		local = intersect(local, allowed)
 	}
@@ -199,7 +223,11 @@ func List(ctx *app.Context) int {
 		paths = filtered
 	}
 
-	pathW, branchW := listColumns(paths, local, info, output.Width(out))
+	aliasOf := map[string]string{}
+	for _, p := range paths {
+		aliasOf[p] = remoteSet.OriginAlias(p)
+	}
+	pathW, branchW, remoteW := listColumns(paths, local, info, aliasOf, output.Width(out))
 
 	for _, path := range paths {
 		inRemote := remote[path]
@@ -226,6 +254,15 @@ func List(ctx *app.Context) int {
 				cell = output.PadColored(b, colors.Colorize(b, colors.Red, useColor), branchW)
 			} else {
 				cell = strings.Repeat(" ", branchW)
+			}
+			line += " " + cell
+		}
+		if remoteW > 0 {
+			cell := ""
+			if al := output.Truncate(aliasOf[path], remoteW); al != "" {
+				cell = output.PadColored(al, colors.Colorize(al, colors.Gray, useColor), remoteW)
+			} else {
+				cell = strings.Repeat(" ", remoteW)
 			}
 			line += " " + cell
 		}
@@ -259,6 +296,7 @@ func List(ctx *app.Context) int {
 		}
 		fmt.Fprintf(out, "(active filter(s): %s; pass --all to see everything)\n", strings.Join(active, ", "))
 	}
+	output.PrintRemotesLegend(out, legendRows(remoteSet.Subset(paths), selector.CustomAliases(ctx)), useColor)
 	fmt.Fprintln(out, "legend:")
 	fmt.Fprintf(out, "  %s  — local & remote, local default branch matches remote\n", colors.Colorize("green", colors.Green, useColor))
 	fmt.Fprintf(out, "  %s — local & remote, local default branch differs from remote (likely behind)\n", colors.Colorize("yellow", colors.Yellow, useColor))
@@ -266,6 +304,16 @@ func List(ctx *app.Context) int {
 	fmt.Fprintf(out, "  %s    — local only (no remote repository)\n", colors.Colorize("red", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote only\n", colors.Colorize("gray", colors.Gray, useColor))
 	fmt.Fprintf(out, "  %s — current branch of local repo\n", colors.Colorize("[branch]", colors.Red, useColor))
+	fmt.Fprintf(out, "  %s   — remote alias of the repo (see remotes: above)\n", colors.Colorize("alias", colors.Gray, useColor))
 	fmt.Fprintf(out, "  %s        — uncommitted changes in working tree\n", colors.Colorize("✗", colors.Yellow, useColor))
 	return 0
+}
+
+func legendRows(set *remotes.Set, custom map[string]string) []output.RemoteLegendRow {
+	src := set.Legend(custom)
+	rows := make([]output.RemoteLegendRow, 0, len(src))
+	for _, r := range src {
+		rows = append(rows, output.RemoteLegendRow{Alias: r.Alias, Host: r.Host, Value: r.Value, Custom: r.Custom})
+	}
+	return rows
 }

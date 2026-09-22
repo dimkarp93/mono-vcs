@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dimkarp93/mono-vcs/internal/aliases"
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/state"
 )
@@ -16,9 +17,10 @@ import (
 const PerPage = 100
 
 type Config struct {
-	GLURL  string `json:"gl-url,omitempty"`
-	Jobs   int    `json:"jobs,omitempty"`
-	DBPath string `json:"db-path,omitempty"`
+	GLURL       string `json:"gl-url,omitempty"`
+	Jobs        int    `json:"jobs,omitempty"`
+	DBPath      string `json:"db-path,omitempty"`
+	AliasesPath string `json:"aliases-path,omitempty"`
 }
 
 var pathOverride string
@@ -94,6 +96,13 @@ func ApplyDefaults(a *app.Args) error {
 			v = state.DefaultPath()
 		}
 		a.DBPath = &v
+	}
+	if a.AliasesPath == nil {
+		v := cfg.AliasesPath
+		if v == "" {
+			v = aliases.DefaultPath()
+		}
+		a.AliasesPath = &v
 	}
 	return nil
 }

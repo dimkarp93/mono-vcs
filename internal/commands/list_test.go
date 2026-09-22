@@ -213,3 +213,39 @@ func TestListAdoptsDefaultBranchFromGitLab(t *testing.T) {
 		t.Fatalf("stored=%q", b)
 	}
 }
+
+func TestListShowsRemoteAliasAndLegend(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	repo, _, _ := makeSyncedPair(t, ws, fake, "grp/proj")
+	testutil.Run(t, repo, "git", "remote", "set-url", "origin", "https://gitlab.company.com/grp/proj.git")
+
+	a := listArgs(fake)
+	a.All = true
+	ctx, out, _ := newCtx(t, a, "")
+	commands.List(ctx)
+	o := out.String()
+	contains(t, o, "gitlab.company")
+	contains(t, o, "remotes:")
+	contains(t, o, "gitlab.company.com")
+}
+
+func TestListRemoteFilterNarrowsRepos(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	fake := testutil.NewFakeGitLab(t)
+	gl, _, _ := makeSyncedPair(t, ws, fake, "grp/onegl")
+	gh, _, _ := makeSyncedPair(t, ws, fake, "grp/onegh")
+	testutil.Run(t, gl, "git", "remote", "set-url", "origin", "https://gitlab.company.com/grp/onegl.git")
+	testutil.Run(t, gh, "git", "remote", "set-url", "origin", "git@github.com:grp/onegh.git")
+
+	a := listArgs(fake)
+	a.All = true
+	a.Remote = []string{"github"}
+	ctx, out, _ := newCtx(t, a, "")
+	commands.List(ctx)
+	o := out.String()
+	contains(t, o, "grp/onegh")
+	notContains(t, o, "grp/onegl")
+}

@@ -634,3 +634,38 @@ func TestPruneTargetsListsTrackedChange(t *testing.T) {
 		t.Fatalf("targets=%v err=%v", targets, err)
 	}
 }
+
+func TestRemotesListsEveryRemoteOnce(t *testing.T) {
+	ws := t.TempDir()
+	local := testutil.MakeClonedRepo(t, ws, "grp/api", "main")
+	testutil.Run(t, local, "git", "remote", "add", "upstream", "git@github.com:grp/api.git")
+
+	rs, err := gitops.Remotes(local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 2 {
+		t.Fatalf("got %+v", rs)
+	}
+	byName := map[string]string{}
+	for _, r := range rs {
+		byName[r.Name] = r.URL
+	}
+	if byName["upstream"] != "git@github.com:grp/api.git" {
+		t.Fatalf("got %+v", byName)
+	}
+	if byName["origin"] == "" {
+		t.Fatalf("origin missing: %+v", byName)
+	}
+}
+
+func TestRemotesOnRepoWithoutRemotesIsEmpty(t *testing.T) {
+	repo := testutil.MakeRepo(t, t.TempDir(), "solo", "main")
+	rs, err := gitops.Remotes(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 0 {
+		t.Fatalf("got %+v", rs)
+	}
+}

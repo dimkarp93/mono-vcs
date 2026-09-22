@@ -8,7 +8,7 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
-	"github.com/dimkarp93/mono-vcs/internal/repos"
+	"github.com/dimkarp93/mono-vcs/internal/selector"
 )
 
 type Worker func(path string) gitops.Result
@@ -20,8 +20,7 @@ func RunPerRepo(ctx *app.Context, label string, worker Worker, successStates map
 		output.Die(ctx.Stderr, "git not found in PATH")
 		return 1
 	}
-	local := repos.SortedKeys(repos.ScanLocalRepos("."))
-	local = repos.FilterRepos(local, ctx.Args.Repo, ctx.Stderr)
+	local := selector.SelectLocal(ctx)
 	if len(local) == 0 {
 		fmt.Fprintln(ctx.Stdout, "no local git repositories found under current directory")
 		return 0

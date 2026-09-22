@@ -59,14 +59,14 @@ func TestFeaturesTableWithColorKeepsBordersAligned(t *testing.T) {
 
 func TestFeatureColumnsGrowWithTerminal(t *testing.T) {
 	rows := []FeatureRow{{Branch: "feat", Repos: []string{"a"}}}
-	_, narrow, _ := featureColumns(100, rows)
-	_, wide, _ := featureColumns(240, rows)
+	_, narrow, _, _ := featureColumns(100, rows)
+	_, wide, _, _ := featureColumns(240, rows)
 	if wide <= narrow {
 		t.Fatalf("path column did not grow: %d -> %d", narrow, wide)
 	}
-	branchW, col2W, col3W := featureColumns(100, rowsFixture())
-	if branchW+col2W+col3W+10 != 100 {
-		t.Fatalf("columns %d/%d/%d do not fill 100", branchW, col2W, col3W)
+	branchW, col2W, col3W, col4W := featureColumns(100, rowsFixture())
+	if branchW+col2W+col3W+col4W+13 != 100 {
+		t.Fatalf("columns %d/%d/%d/%d do not fill 100", branchW, col2W, col3W, col4W)
 	}
 	if branchW > 100 {
 		t.Fatalf("branch column unbounded: %d", branchW)
@@ -133,7 +133,7 @@ func TestFeaturesTableRowPerRepo(t *testing.T) {
 	cells := map[string]int{}
 	for _, l := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
 		parts := strings.Split(l, "│")
-		if len(parts) != 5 {
+		if len(parts) != 6 {
 			continue
 		}
 		if repos := strings.TrimSpace(parts[2]); repos != "" && repos != "repos" {

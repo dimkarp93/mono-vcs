@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/dimkarp93/mono-vcs/internal/aliases"
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/config"
 	"github.com/dimkarp93/mono-vcs/internal/output"
@@ -58,10 +59,21 @@ func Init(ctx *app.Context) int {
 		return 1
 	}
 
+	aliasCurrent := existing.AliasesPath
+	if aliasCurrent == "" {
+		aliasCurrent = aliases.DefaultPath()
+	}
+	aliasPath, err := pr.Free("Aliases path", aliasCurrent, true)
+	if err != nil {
+		output.Die(ctx.Stderr, err.Error())
+		return 1
+	}
+
 	if err := config.Save(config.Config{
-		GLURL:  glURL,
-		Jobs:   jobs,
-		DBPath: dbPath,
+		GLURL:       glURL,
+		Jobs:        jobs,
+		DBPath:      dbPath,
+		AliasesPath: aliasPath,
 	}); err != nil {
 		output.Die(ctx.Stderr, err.Error())
 		return 1

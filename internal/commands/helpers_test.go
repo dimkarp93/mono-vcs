@@ -27,6 +27,9 @@ func newCtx(t *testing.T, args *app.Args, stdin string) (*app.Context, *bytes.Bu
 	if args.DBPath == nil {
 		args.DBPath = testutil.S(testutil.SeedStateFromRepos(t, "."))
 	}
+	if args.AliasesPath == nil {
+		args.AliasesPath = testutil.S(filepath.Join(t.TempDir(), "aliases.json"))
+	}
 	return &app.Context{
 		Args:   args,
 		Stdin:  strings.NewReader(stdin),

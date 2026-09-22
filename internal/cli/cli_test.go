@@ -51,7 +51,7 @@ func TestSubcommandsRegistered(t *testing.T) {
 		"default-branch": true,
 		"stash":          true, "unstash": true, "clear-stash": true, "history-stash": true,
 		"prune": true, "features": true, "do": true, "switch": true,
-		"finish": true, "done": true, "new": true, "mr": true, "init": true,
+		"finish": true, "done": true, "new": true, "mr": true, "init": true, "alias": true,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
@@ -302,5 +302,76 @@ func TestMRDryRunSkipsToken(t *testing.T) {
 	r.TokenFunc = func(bool) (string, error) { t.Fatal("token should not be asked"); return "", nil }
 	if rc := r.Run([]string{"mr", "--dry-run", "feat-x"}); rc != 0 {
 		t.Fatalf("rc=%d", rc)
+	}
+}
+
+func TestRemoteFlagParsedEverywhereRepoIs(t *testing.T) {
+	for _, cmd := range []string{"list", "pull", "update", "stash", "unstash", "clear-stash",
+		"history-stash", "default-branch", "prune", "features", "do", "switch", "finish", "new"} {
+		r, c := newRunnerWithGLURL(t)
+		r.TokenFunc = func(bool) (string, error) { return "T", nil }
+		r.Commands[cmd] = c.handler
+		argv := []string{cmd, "-remote", "github,gitlab", "-remote", "gitea"}
+		if cmd == "new" || cmd == "finish" {
+			argv = append(argv, "feat")
+		}
+		if cmd == "do" {
+			argv = append(argv, "pwd")
+		}
+		if rc := r.Run(argv); rc != 0 {
+			t.Fatalf("%s: rc=%d", cmd, rc)
+		}
+		if !reflect.DeepEqual(c.args.Remote, []string{"github,gitlab", "gitea"}) {
+			t.Fatalf("%s: got %v", cmd, c.args.Remote)
+		}
+	}
+}
+
+func TestRemoteCombinesWithRepo(t *testing.T) {
+	r, c := newRunnerWithGLURL(t)
+	r.TokenFunc = func(bool) (string, error) { return "T", nil }
+	r.Commands["do"] = c.handler
+	if rc := r.Run([]string{"do", "-repo", "api", "-remote", "github", "pwd"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if !reflect.DeepEqual(c.args.Repo, []string{"api"}) || !reflect.DeepEqual(c.args.Remote, []string{"github"}) {
+		t.Fatalf("repo=%v remote=%v", c.args.Repo, c.args.Remote)
+	}
+}
+
+func TestAliasPositionalsAndDeleteFlag(t *testing.T) {
+	r, c := newRunner(t)
+	r.Commands["alias"] = c.handler
+	if rc := r.Run([]string{"alias", "remote", "work", "gitlab"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if !reflect.DeepEqual(c.args.Action, []string{"remote", "work", "gitlab"}) {
+		t.Fatalf("got %v", c.args.Action)
+	}
+
+	r2, c2 := newRunner(t)
+	r2.Commands["alias"] = c2.handler
+	if rc := r2.Run([]string{"alias", "remote", "-d", "work"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if !c2.args.Delete || !reflect.DeepEqual(c2.args.Action, []string{"remote", "work"}) {
+		t.Fatalf("delete=%v action=%v", c2.args.Delete, c2.args.Action)
+	}
+
+	r3, c3 := newRunner(t)
+	r3.Commands["alias"] = c3.handler
+	if rc := r3.Run([]string{"alias", "ls"}); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if !reflect.DeepEqual(c3.args.Action, []string{"ls"}) {
+		t.Fatalf("got %v", c3.args.Action)
+	}
+}
+
+func TestAliasDoesNotRequireGLURL(t *testing.T) {
+	r, c := newRunner(t)
+	r.Commands["alias"] = c.handler
+	if rc := r.Run([]string{"alias", "ls"}); rc != 0 || !c.called {
+		t.Fatalf("rc=%d called=%v", rc, c.called)
 	}
 }

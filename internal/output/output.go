@@ -24,18 +24,27 @@ func Items(items []string, width int) []string {
 }
 
 type FeatureRow struct {
-	Branch string
-	Repos  []string
-	Active []string
+	Branch  string
+	Repos   []string
+	Active  []string
+	Remotes []string
 }
 
-func featureColumns(total int, rows []FeatureRow) (int, int, int) {
+func featureColumns(total int, rows []FeatureRow) (int, int, int, int) {
 	const minCell = 8
-	avail := total - 10
+	avail := total - 13
 	branchW := DisplayWidth("branch")
 	for _, r := range rows {
 		if l := DisplayWidth(r.Branch); l > branchW {
 			branchW = l
+		}
+	}
+	remoteW := DisplayWidth("remotes")
+	for _, r := range rows {
+		for _, a := range r.Remotes {
+			if l := DisplayWidth(a); l > remoteW {
+				remoteW = l
+			}
 		}
 	}
 	branchCap := avail * 3 / 10
@@ -45,35 +54,46 @@ func featureColumns(total int, rows []FeatureRow) (int, int, int) {
 	if branchW > branchCap {
 		branchW = branchCap
 	}
-	if rest := avail - branchW; rest < 2*minCell {
-		branchW = avail - 2*minCell
+	remoteCap := avail / 5
+	if remoteCap < DisplayWidth("remotes") {
+		remoteCap = DisplayWidth("remotes")
+	}
+	if remoteW > remoteCap {
+		remoteW = remoteCap
+	}
+	if rest := avail - branchW - remoteW; rest < 2*minCell {
+		branchW = avail - remoteW - 2*minCell
 		if branchW < DisplayWidth("branch") {
 			branchW = DisplayWidth("branch")
 		}
 	}
-	rest := avail - branchW
+	rest := avail - branchW - remoteW
 	if rest < 2 {
 		rest = 2
 	}
 	col2W := (rest + 1) / 2
-	return branchW, col2W, rest - col2W
+	return branchW, col2W, rest - col2W, remoteW
 }
 
 func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
-	col1Label, col2Label, col3Label := "branch", "repos", "active"
-	col1W, col2W, col3W := featureColumns(Width(w), rows)
+	col1Label, col2Label, col3Label, col4Label := "branch", "repos", "active", "remotes"
+	col1W, col2W, col3W, col4W := featureColumns(Width(w), rows)
 
 	bar1 := strings.Repeat("─", col1W+2)
 	bar2 := strings.Repeat("─", col2W+2)
 	bar3 := strings.Repeat("─", col3W+2)
-	top := "┌" + bar1 + "┬" + bar2 + "┬" + bar3 + "┐"
-	sep := "├" + bar1 + "┼" + bar2 + "┼" + bar3 + "┤"
-	bot := "└" + bar1 + "┴" + bar2 + "┴" + bar3 + "┘"
+	bar4 := strings.Repeat("─", col4W+2)
+	top := "┌" + bar1 + "┬" + bar2 + "┬" + bar3 + "┬" + bar4 + "┐"
+	sep := "├" + bar1 + "┼" + bar2 + "┼" + bar3 + "┼" + bar4 + "┤"
+	bot := "└" + bar1 + "┴" + bar2 + "┴" + bar3 + "┴" + bar4 + "┘"
 
-	emit := func(left string, midLines, rightLines []string, leftColor string) {
+	emit := func(left string, midLines, rightLines, remoteLines []string, leftColor string) {
 		n := len(midLines)
 		if len(rightLines) > n {
 			n = len(rightLines)
+		}
+		if len(remoteLines) > n {
+			n = len(remoteLines)
 		}
 		if n < 1 {
 			n = 1
@@ -84,6 +104,9 @@ func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 		for len(rightLines) < n {
 			rightLines = append(rightLines, "")
 		}
+		for len(remoteLines) < n {
+			remoteLines = append(remoteLines, "")
+		}
 		for i := 0; i < n; i++ {
 			lRaw := ""
 			if i == 0 {
@@ -93,12 +116,12 @@ func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 			if leftColor != "" && lRaw != "" {
 				lPadded = PadColored(lRaw, colors.Colorize(lRaw, leftColor, useColor), col1W)
 			}
-			fmt.Fprintf(w, "│ %s │ %s │ %s │\n", lPadded, Cell(midLines[i], col2W), Cell(rightLines[i], col3W))
+			fmt.Fprintf(w, "│ %s │ %s │ %s │ %s │\n", lPadded, Cell(midLines[i], col2W), Cell(rightLines[i], col3W), Cell(remoteLines[i], col4W))
 		}
 	}
 
 	fmt.Fprintln(w, top)
-	emit(col1Label, []string{col2Label}, []string{col3Label}, "")
+	emit(col1Label, []string{col2Label}, []string{col3Label}, []string{col4Label}, "")
 	fmt.Fprintln(w, sep)
 	for i, r := range rows {
 		var color string
@@ -113,7 +136,11 @@ func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 		if len(r.Active) == 0 {
 			right = []string{"—"}
 		}
-		emit(r.Branch, Items(r.Repos, col2W), right, color)
+		rem := Items(r.Remotes, col4W)
+		if len(r.Remotes) == 0 {
+			rem = []string{"—"}
+		}
+		emit(r.Branch, Items(r.Repos, col2W), right, rem, color)
 		if i < len(rows)-1 {
 			fmt.Fprintln(w, sep)
 		}
