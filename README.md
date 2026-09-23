@@ -291,8 +291,7 @@ git -C <repo> push -u origin refs/heads/<branch>:refs/heads/<branch> \
 rebase- и squash-мерджи переписывают SHA, и такие ветки `done` не распознает
 (статус `open`); их убирают вручную через `finish`.
 
-Перед удалением по каждому репозиторию спрашивается подтверждение
-(`[y]es / [a] yes to all / [s]kip / [sa] skip to all`); `-y` его пропускает. Если
+Ветки удаляются без подтверждения — список удаляемого печатается перед удалением. Если
 удаляемая ветка вычекаучена, репозиторий сначала переходит на дефолтную и
 подтягивает её.
 
@@ -318,7 +317,6 @@ mono-vcs do -feat MVPAY-290 git status -s       # только репо, где 
 mono-vcs do git commit -m "два слова"           # кавычки сохраняются: это один аргумент
 mono-vcs do "git fetch && git status -s"        # один аргумент — это шелл-строка целиком
 mono-vcs done                                   # убрать локальные ветки влитых фич
-mono-vcs done -y                                # то же без подтверждений
 mono-vcs finish MVPAY-290                       # выбросить фичу и вернуться на дефолтную
 mono-vcs alias ls                               # какие есть алиасы remote'ов
 mono-vcs alias remote work gitlab.mycompany     # завести кастомный алиас
@@ -422,7 +420,7 @@ internal/
 ├── colors/     ANSI-цвета
 ├── config/     чтение/запись конфига (JSON), применение дефолтов
 ├── output/     печать ошибок, таблица features
-├── prompts/    интерактивные промпты (токен, choice, force/prune)
+├── prompts/    интерактивные промпты (токен, ввод значений)
 ├── repos/      поиск локальных репо, --repo фильтр
 ├── remotes/    сбор git-remote'ов, нормализация URL, системные алиасы
 ├── aliases/    кастомные алиасы (JSON, ~/.local/mono-vcs/aliases.json)

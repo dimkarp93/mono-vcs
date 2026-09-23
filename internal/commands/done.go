@@ -10,7 +10,6 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/dryrun"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
-	"github.com/dimkarp93/mono-vcs/internal/prompts"
 	"github.com/dimkarp93/mono-vcs/internal/repos"
 )
 
@@ -67,23 +66,8 @@ func Done(ctx *app.Context) int {
 		return 0
 	}
 
-	todo, declined, err := confirmDone(ctx, scan.plans)
-	if err != nil {
-		output.Die(ctx.Stderr, err.Error())
-		return 1
-	}
-	if declined > 0 {
-		fmt.Fprintf(out, "skipping %d repo(s) (user declined)\n", declined)
-	}
-	if len(todo) == 0 {
-		fmt.Fprintln(out, "nothing deleted")
-		if badScan {
-			return 1
-		}
-		return 0
-	}
-
-	deleted, failed := deleteDone(ctx, todo)
+	printDonePlans(ctx, scan.plans)
+	deleted, failed := deleteDone(ctx, scan.plans)
 
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "deleted: %d, still open: %d, dirty: %d, unresolved: %d, fetch failed: %d, failed: %d\n",
@@ -174,46 +158,15 @@ func scanOne(path string, defs defaultBranches, token string) (res doneScan) {
 	return res
 }
 
-func confirmDone(ctx *app.Context, plans []donePlan) ([]donePlan, int, error) {
+func printDonePlans(ctx *app.Context, plans []donePlan) {
 	out := ctx.Stdout
 	useColor := colors.Enabled()
-	pr := prompts.New(ctx.Stdin, ctx.Stdout, ctx.Stderr)
-
-	var todo []donePlan
-	declined := 0
-	bulk := ""
 	for _, pl := range plans {
 		fmt.Fprintln(out, colors.Colorize(pl.path, colors.Green, useColor))
 		for _, b := range pl.branches {
 			fmt.Fprintf(out, "  %s — merged into %s\n", b, pl.main)
 		}
-		if ctx.Args.Yes {
-			todo = append(todo, pl)
-			continue
-		}
-		choice := bulk
-		if choice == "" {
-			ch, err := pr.Done(pl.path, len(pl.branches))
-			if err != nil {
-				return nil, declined, err
-			}
-			choice = ch
-		}
-		switch choice {
-		case "yes-all":
-			bulk = "yes-all"
-			choice = "yes"
-		case "skip-all":
-			bulk = "skip-all"
-			choice = "skip"
-		}
-		if choice == "yes" {
-			todo = append(todo, pl)
-		} else {
-			declined++
-		}
 	}
-	return todo, declined, nil
 }
 
 func deleteDone(ctx *app.Context, todo []donePlan) (int, [][2]string) {

@@ -201,8 +201,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		repo()
 	case "prune":
 		jobs()
-		fs.BoolVar(&a.Yes, "yes", false, "auto-confirm")
-		fs.BoolVar(&a.Yes, "y", false, "auto-confirm")
 		repo()
 		dryRun()
 	case "features":
@@ -221,8 +219,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	case "done":
 		jobs()
 		dryRun()
-		fs.BoolVar(&a.Yes, "yes", false, "auto-confirm")
-		fs.BoolVar(&a.Yes, "y", false, "auto-confirm")
 	case "new":
 		jobs()
 		repo()

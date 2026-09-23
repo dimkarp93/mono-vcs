@@ -79,26 +79,7 @@ func TestCloneSkipsExisting(t *testing.T) {
 	}
 }
 
-func TestClonePromptsForNonRepoDirSkip(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	remotes := t.TempDir()
-	fake := testutil.NewFakeGitLab(t)
-	fake.AddProject("alpha/p", seedRemote(t, remotes, "a"))
-	junk := filepath.Join(ws, "alpha", "p")
-	os.MkdirAll(junk, 0o755)
-	os.WriteFile(filepath.Join(junk, "stuff"), []byte("data"), 0o644)
-
-	ctx, _, _ := newCtx(t, cloneArgs(fake, 1), "s\n")
-	if rc := commands.Clone(ctx); rc != 0 {
-		t.Fatalf("rc=%d", rc)
-	}
-	if !exists(filepath.Join(junk, "stuff")) || exists(filepath.Join(junk, ".git")) {
-		t.Fatal("expected junk kept, no clone")
-	}
-}
-
-func TestCloneForceYesAllReplaces(t *testing.T) {
+func TestCloneReplacesNonRepoDirs(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	remotes := t.TempDir()
@@ -110,7 +91,7 @@ func TestCloneForceYesAllReplaces(t *testing.T) {
 		os.WriteFile(filepath.Join(p, "junk"), []byte("x"), 0o644)
 	}
 
-	ctx, _, _ := newCtx(t, cloneArgs(fake, 1), "a\n")
+	ctx, _, _ := newCtx(t, cloneArgs(fake, 1), "")
 	if rc := commands.Clone(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}

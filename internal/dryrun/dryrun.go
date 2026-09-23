@@ -131,12 +131,7 @@ func Prune(w io.Writer, a *app.Args, repos []string) {
 	header(w, "prune", repos)
 	fmt.Fprintln(w, "  Условие: если есть незакоммиченные изменения (git status --porcelain непуст)")
 	fmt.Fprintln(w, "    1. показать список того, что будет отброшено (git status --porcelain)")
-	if a.Yes {
-		fmt.Fprintln(w, "    2. -y передан — отбросить без подтверждения")
-	} else {
-		fmt.Fprintln(w, "    2. спросить подтверждение ([y]es / [a] yes-all / [s]kip / [sa] skip-all)")
-	}
-	fmt.Fprintln(w, "    3. при согласии: git -C <repo-name> reset --hard HEAD && git -C <repo-name> clean -fd")
+	fmt.Fprintln(w, "    2. git -C <repo-name> reset --hard HEAD && git -C <repo-name> clean -fd")
 	fmt.Fprintln(w, "  Иначе: пропустить (нечего отбрасывать); игнорируемые файлы сохраняются")
 }
 
@@ -203,12 +198,7 @@ func Done(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "     а. если <B> — текущая ветка, рабочее дерево чистое (нет незакоммиченных и неотслеживаемых файлов);")
 	fmt.Fprintln(w, "     б. git -C <repo-name> merge-base --is-ancestor <B> <target> вернул 0 —")
 	fmt.Fprintln(w, "        все коммиты <B> уже лежат в истории дефолтной ветки.")
-	if a.Yes {
-		fmt.Fprintln(w, "  5. -y передан — удалить без подтверждения")
-	} else {
-		fmt.Fprintln(w, "  5. по каждому репозиторию спросить подтверждение ([y]es / [a] yes-all / [s]kip / [sa] skip-all)")
-	}
-	fmt.Fprintln(w, "  6. При согласии для каждой такой ветки:")
+	fmt.Fprintln(w, "  5. Для каждой такой ветки:")
 	fmt.Fprintln(w, "     Условие: если <B> — текущая ветка")
 	fmt.Fprintln(w, "       git -C <repo-name> checkout <default-branch>")
 	fmt.Fprintln(w, "       git -C <repo-name> pull --ff-only --quiet")
