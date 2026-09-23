@@ -5,11 +5,13 @@
 #   export PATH="$HOME/.local/go/bin:$PATH"
 
 BINARY      := mono-vcs
-PKG         := .
+PKG         := ./cmd/mono-vcs
 DIST        := dist
 GO          ?= go
 # Bare semver shared with the release workflow and embedded into the binary.
 VERSION     := $(shell tr -d '[:space:]' < versions.txt 2>/dev/null)
+export GOWORK := off
+export GOFLAGS := -mod=vendor
 # Fully static, reproducible builds for client distribution.
 BUILD_ENV   := CGO_ENABLED=0
 CHANNEL     ?= local
@@ -143,3 +145,13 @@ bump-major:
 clean:
 	rm -f $(BINARY)
 	rm -rf $(DIST)
+
+.PHONY: vendor
+vendor:
+	GOWORK=off go mod tidy
+	GOWORK=off go mod vendor
+
+.PHONY: vendor-check
+vendor-check:
+	GOWORK=off go mod vendor
+	test -z "$$(git status --porcelain -- go.mod go.sum vendor/ | tee /dev/stderr)"
