@@ -10,8 +10,8 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/testutil"
 )
 
-func pruneArgs(yes bool) *app.Args {
-	return &app.Args{Jobs: testutil.I(1), Yes: yes}
+func pruneArgs() *app.Args {
+	return &app.Args{Jobs: testutil.I(1)}
 }
 
 func TestPruneRemovesUntrackedFile(t *testing.T) {
@@ -20,7 +20,7 @@ func TestPruneRemovesUntrackedFile(t *testing.T) {
 	p := testutil.MakeRepo(t, ws, "p", "main")
 	junk := filepath.Join(p, "junk.txt")
 	os.WriteFile(junk, []byte("garbage"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -37,7 +37,7 @@ func TestPruneRemovesUntrackedDirectory(t *testing.T) {
 	nested := filepath.Join(p, "build", "out")
 	os.MkdirAll(nested, 0o755)
 	os.WriteFile(filepath.Join(nested, "artifact.bin"), []byte("x"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -53,7 +53,7 @@ func TestPruneReportsItemCount(t *testing.T) {
 	p := testutil.MakeRepo(t, ws, "p", "main")
 	os.WriteFile(filepath.Join(p, "a.txt"), []byte("1"), 0o644)
 	os.WriteFile(filepath.Join(p, "b.txt"), []byte("2"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -64,7 +64,7 @@ func TestPruneCleanRepoReportsNothing(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	testutil.MakeRepo(t, ws, "p", "main")
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -77,7 +77,7 @@ func TestPruneRevertsTrackedChanges(t *testing.T) {
 	t.Chdir(ws)
 	p := testutil.MakeRepo(t, ws, "p", "main")
 	writeFile(p, "README", "modified, but tracked")
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -94,7 +94,7 @@ func TestPruneRevertsStagedChanges(t *testing.T) {
 	p := testutil.MakeRepo(t, ws, "p", "main")
 	writeFile(p, "README", "staged change")
 	testutil.Run(t, p, "git", "add", "README")
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -114,7 +114,7 @@ func TestPruneRespectsGitignore(t *testing.T) {
 	testutil.Run(t, p, "git", "commit", "-m", "ignore")
 	os.WriteFile(filepath.Join(p, "ignored.log"), []byte("keep me"), 0o644)
 	os.WriteFile(filepath.Join(p, "kill.txt"), []byte("remove me"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -134,7 +134,7 @@ func TestPruneRepoFilter(t *testing.T) {
 	b := testutil.MakeRepo(t, ws, "b", "main")
 	os.WriteFile(filepath.Join(a, "junk"), []byte("x"), 0o644)
 	os.WriteFile(filepath.Join(b, "junk"), []byte("x"), 0o644)
-	args := pruneArgs(true)
+	args := pruneArgs()
 	args.Repo = []string{"a"}
 	ctx, _, _ := newCtx(t, args, "")
 	if rc := commands.Prune(ctx); rc != 0 {
@@ -151,7 +151,7 @@ func TestPruneRepoFilter(t *testing.T) {
 func TestPruneNoRepos(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	if rc := commands.Prune(ctx); rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -163,72 +163,10 @@ func TestPruneListsFilesBeforeDeleting(t *testing.T) {
 	t.Chdir(ws)
 	p := testutil.MakeRepo(t, ws, "p", "main")
 	os.WriteFile(filepath.Join(p, "junk.txt"), []byte("garbage"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(true), "")
+	ctx, out, _ := newCtx(t, pruneArgs(), "")
 	commands.Prune(ctx)
 	contains(t, out.String(), "junk.txt")
 	notContains(t, out.String(), "Would remove")
-}
-
-func TestPrunePromptYesDeletes(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main")
-	junk := filepath.Join(p, "junk.txt")
-	os.WriteFile(junk, []byte("garbage"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(false), "y\n")
-	if rc := commands.Prune(ctx); rc != 0 {
-		t.Fatalf("rc=%d", rc)
-	}
-	contains(t, out.String(), "pruned")
-	if exists(junk) {
-		t.Fatal("junk should be removed")
-	}
-}
-
-func TestPrunePromptSkipKeeps(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	p := testutil.MakeRepo(t, ws, "p", "main")
-	junk := filepath.Join(p, "junk.txt")
-	os.WriteFile(junk, []byte("garbage"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(false), "s\n")
-	commands.Prune(ctx)
-	contains(t, out.String(), "user declined")
-	contains(t, out.String(), "nothing pruned")
-	if !exists(junk) {
-		t.Fatal("junk should remain")
-	}
-}
-
-func TestPrunePromptYesToAll(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	a := testutil.MakeRepo(t, ws, "a", "main")
-	b := testutil.MakeRepo(t, ws, "b", "main")
-	os.WriteFile(filepath.Join(a, "junk"), []byte("x"), 0o644)
-	os.WriteFile(filepath.Join(b, "junk"), []byte("x"), 0o644)
-	ctx, _, _ := newCtx(t, pruneArgs(false), "a\n")
-	if rc := commands.Prune(ctx); rc != 0 {
-		t.Fatalf("rc=%d", rc)
-	}
-	if exists(filepath.Join(a, "junk")) || exists(filepath.Join(b, "junk")) {
-		t.Fatal("both should be cleaned via yes-all")
-	}
-}
-
-func TestPrunePromptSkipToAll(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	a := testutil.MakeRepo(t, ws, "a", "main")
-	b := testutil.MakeRepo(t, ws, "b", "main")
-	os.WriteFile(filepath.Join(a, "junk"), []byte("x"), 0o644)
-	os.WriteFile(filepath.Join(b, "junk"), []byte("x"), 0o644)
-	ctx, out, _ := newCtx(t, pruneArgs(false), "sa\n")
-	commands.Prune(ctx)
-	contains(t, out.String(), "nothing pruned")
-	if !exists(filepath.Join(a, "junk")) || !exists(filepath.Join(b, "junk")) {
-		t.Fatal("both should remain via skip-all")
-	}
 }
 
 func TestPruneDryRun(t *testing.T) {
@@ -237,7 +175,7 @@ func TestPruneDryRun(t *testing.T) {
 	p := testutil.MakeRepo(t, ws, "p", "main")
 	junk := filepath.Join(p, "junk.txt")
 	os.WriteFile(junk, []byte("garbage"), 0o644)
-	a := pruneArgs(false)
+	a := pruneArgs()
 	a.DryRun = true
 	ctx, out, _ := newCtx(t, a, "")
 	if rc := commands.Prune(ctx); rc != 0 {

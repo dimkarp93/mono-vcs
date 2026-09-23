@@ -9,7 +9,6 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/dryrun"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
-	"github.com/dimkarp93/mono-vcs/internal/prompts"
 )
 
 func Prune(ctx *app.Context) int {
@@ -57,52 +56,13 @@ func Prune(ctx *app.Context) int {
 		return 0
 	}
 
-	pr := prompts.New(ctx.Stdin, ctx.Stdout, ctx.Stderr)
 	var todo []string
-	declined := 0
-	bulk := ""
 	for _, pl := range plans {
 		fmt.Fprintln(out, colors.Colorize(pl.path, colors.Green, useColor))
 		for _, t := range pl.targets {
 			fmt.Fprintf(out, "  %s\n", t)
 		}
-		if a.Yes {
-			todo = append(todo, pl.path)
-			continue
-		}
-		choice := bulk
-		if choice == "" {
-			ch, err := pr.Prune(pl.path, len(pl.targets))
-			if err != nil {
-				output.Die(ctx.Stderr, err.Error())
-				return 1
-			}
-			choice = ch
-		}
-		switch choice {
-		case "yes-all":
-			bulk = "yes-all"
-			choice = "yes"
-		case "skip-all":
-			bulk = "skip-all"
-			choice = "skip"
-		}
-		if choice == "yes" {
-			todo = append(todo, pl.path)
-		} else {
-			declined++
-		}
-	}
-
-	if declined > 0 {
-		fmt.Fprintf(out, "skipping %d repo(s) (user declined)\n", declined)
-	}
-	if len(todo) == 0 {
-		fmt.Fprintln(out, "nothing pruned")
-		if failures > 0 {
-			return 1
-		}
-		return 0
+		todo = append(todo, pl.path)
 	}
 
 	fmt.Fprintf(out, "pruning %d repos (jobs=%d)\n", len(todo), a.GetJobs())

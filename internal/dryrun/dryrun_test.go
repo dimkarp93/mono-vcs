@@ -88,15 +88,7 @@ func TestDryDone(t *testing.T) {
 	out := render(func(b *bytes.Buffer) { Done(b, ns(), []string{"a"}) })
 	expectHeader(t, out, "done", 1)
 	mustContain(t, out, "fetch --prune --quiet origin",
-		"merge-base --is-ancestor <B> <target>", "branch -D <B>",
-		"спросить подтверждение")
-}
-
-func TestDryDoneWithYes(t *testing.T) {
-	a := ns()
-	a.Yes = true
-	out := render(func(b *bytes.Buffer) { Done(b, a, []string{"a"}) })
-	mustContain(t, out, "-y передан")
+		"merge-base --is-ancestor <B> <target>", "branch -D <B>")
 }
 
 func TestDryDo(t *testing.T) {

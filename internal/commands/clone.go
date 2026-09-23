@@ -9,7 +9,6 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/gitlab"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
-	"github.com/dimkarp93/mono-vcs/internal/prompts"
 	"github.com/dimkarp93/mono-vcs/internal/repos"
 )
 
@@ -53,44 +52,16 @@ func Clone(ctx *app.Context) int {
 		force       bool
 	}
 	var todo []todoItem
-	forced, forceSkipped := 0, 0
-	bulk := ""
-	pr := prompts.New(ctx.Stdin, ctx.Stdout, ctx.Stderr)
+	forced := 0
 	for _, c := range candidates {
-		if !c.needsForce {
-			todo = append(todo, todoItem{c.url, c.target, false})
-			continue
-		}
-		choice := bulk
-		if choice == "" {
-			ch, err := pr.ForceDelete(c.target)
-			if err != nil {
-				output.Die(ctx.Stderr, err.Error())
-				return 1
-			}
-			choice = ch
-		}
-		switch choice {
-		case "yes-all":
-			bulk = "yes-all"
-			choice = "yes"
-		case "skip-all":
-			bulk = "skip-all"
-			choice = "skip"
-		}
-		if choice == "yes" {
+		if c.needsForce {
 			forced++
-			todo = append(todo, todoItem{c.url, c.target, true})
-		} else {
-			forceSkipped++
 		}
+		todo = append(todo, todoItem{c.url, c.target, c.needsForce})
 	}
 
 	if forced > 0 {
 		fmt.Fprintf(out, "force-replacing %d non-repo director(y/ies) before cloning\n", forced)
-	}
-	if forceSkipped > 0 {
-		fmt.Fprintf(out, "skipping %d non-repo director(y/ies) (user declined)\n", forceSkipped)
 	}
 	if len(todo) == 0 {
 		fmt.Fprintln(out, "nothing to clone — all remote projects already present locally")

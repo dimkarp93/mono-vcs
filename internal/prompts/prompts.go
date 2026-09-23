@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-var ForcePromptChoices = map[string]string{
-	"y": "yes", "yes": "yes",
-	"a": "yes-all", "yes-all": "yes-all", "yestoall": "yes-all",
-	"s": "skip", "skip": "skip", "n": "skip", "no": "skip",
-	"sa": "skip-all", "skip-all": "skip-all", "skiptoall": "skip-all",
-}
-
 type Prompter struct {
 	raw io.Reader
 	r   *bufio.Reader
@@ -89,50 +82,6 @@ func (p *Prompter) Free(label, current string, required bool) (string, error) {
 		}
 		fmt.Fprintln(p.out, "  value is required")
 	}
-}
-
-func (p *Prompter) forceLoop(prompt string) (string, error) {
-	for {
-		fmt.Fprint(p.out, prompt)
-		val, err := p.readLine()
-		if err != nil && val == "" {
-			fmt.Fprintln(p.out)
-			return "", errors.New("aborted")
-		}
-		v := strings.ToLower(strings.TrimSpace(val))
-		v = strings.ReplaceAll(v, " ", "")
-		v = strings.ReplaceAll(v, "_", "")
-		if r, ok := ForcePromptChoices[v]; ok {
-			return r, nil
-		}
-		fmt.Fprintln(p.out, "  please answer: y / a / s / sa")
-	}
-}
-
-func (p *Prompter) Prune(path string, count int) (string, error) {
-	noun := "items"
-	if count == 1 {
-		noun = "item"
-	}
-	prompt := fmt.Sprintf("discard %d uncommitted %s in %q?\n"+
-		"  [y]es  [a] yes to all  [s]kip  [sa] skip to all: ", count, noun, path)
-	return p.forceLoop(prompt)
-}
-
-func (p *Prompter) Done(path string, count int) (string, error) {
-	noun := "branches"
-	if count == 1 {
-		noun = "branch"
-	}
-	prompt := fmt.Sprintf("delete %d merged %s in %q?\n"+
-		"  [y]es  [a] yes to all  [s]kip  [sa] skip to all: ", count, noun, path)
-	return p.forceLoop(prompt)
-}
-
-func (p *Prompter) ForceDelete(path string) (string, error) {
-	prompt := fmt.Sprintf("%q exists but is not a git repo — delete it and clone?\n"+
-		"  [y]es  [a] yes to all  [s]kip  [sa] skip to all: ", path)
-	return p.forceLoop(prompt)
 }
 
 func isTTY(r io.Reader) bool {

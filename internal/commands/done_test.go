@@ -10,7 +10,7 @@ import (
 )
 
 func doneArgs() *app.Args {
-	return &app.Args{Jobs: testutil.I(1), Yes: true}
+	return &app.Args{Jobs: testutil.I(1)}
 }
 
 func mergeIntoDefault(t *testing.T, repo, branch string) {
@@ -116,26 +116,6 @@ func TestDoneIgnoresRepoAndFeatureFilters(t *testing.T) {
 	contains(t, out.String(), "deleted: 2")
 	if gitops.HasBranch(a, "feature") || gitops.HasBranch(b, "feature") {
 		t.Fatal("done must clean every repo regardless of filters")
-	}
-}
-
-func TestDoneDeclinedAtPrompt(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	p := placeLinked(t, ws, "p")
-	testutil.Run(t, p, "git", "checkout", "-b", "feature")
-	testutil.Commit(t, p, "work", "f", "f")
-	mergeIntoDefault(t, p, "feature")
-
-	args := doneArgs()
-	args.Yes = false
-	ctx, out, _ := newCtx(t, args, "s\n")
-	if rc := commands.Done(ctx); rc != 0 {
-		t.Fatalf("rc=%d", rc)
-	}
-	contains(t, out.String(), "nothing deleted")
-	if !gitops.HasBranch(p, "feature") {
-		t.Fatal("declined branch must survive")
 	}
 }
 

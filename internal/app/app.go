@@ -19,7 +19,6 @@ type Args struct {
 	Remote  []string
 	Feature string
 	DryRun  bool
-	Yes     bool
 	Delete  bool
 	Branch  string
 	Action  []string
