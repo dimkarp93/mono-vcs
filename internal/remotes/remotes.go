@@ -47,6 +47,9 @@ func Normalize(raw string) (string, string) {
 		return LocalHost, localKey(s)
 	}
 	if i := strings.Index(s, ":"); i > 0 && !strings.Contains(s[:i], "/") {
+		if _, port := splitPort(s); port != "" {
+			return hostAndKey(s, "")
+		}
 		return hostAndKey(s[:i], s[i+1:])
 	}
 	if head, path, _ := strings.Cut(s, "/"); looksLikeHost(head) {
@@ -309,11 +312,17 @@ func Split(tokens []string) []string {
 }
 
 func (s *Set) Resolve(token string, custom map[string]string) string {
-	if v, ok := custom[token]; ok {
-		token = v
-	}
-	if h, ok := s.HostByAlias(token); ok {
-		return h
+	seen := map[string]bool{}
+	for !seen[token] {
+		seen[token] = true
+		if v, ok := custom[token]; ok && v != "" {
+			token = v
+			continue
+		}
+		if h, ok := s.HostByAlias(token); ok {
+			return h
+		}
+		break
 	}
 	_, key := Normalize(token)
 	return key
