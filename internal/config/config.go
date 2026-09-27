@@ -99,3 +99,20 @@ func ApplyDefaults(a *app.Args) error {
 	}
 	return nil
 }
+
+func PathEntries() []xdgpath.Entry {
+	cfg, _ := Load()
+	dbPath := cfg.DBPath
+	if dbPath == "" {
+		dbPath = state.DefaultPath()
+	}
+	aliasesPath := cfg.AliasesPath
+	if aliasesPath == "" {
+		aliasesPath = aliases.DefaultPath()
+	}
+	return []xdgpath.Entry{
+		{Name: "config", Path: Path()},
+		{Name: "db", Path: dbPath},
+		{Name: "aliases", Path: aliasesPath},
+	}
+}

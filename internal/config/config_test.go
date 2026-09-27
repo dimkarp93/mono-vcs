@@ -144,3 +144,33 @@ func TestDBPathComesFromConfig(t *testing.T) {
 		t.Fatalf("db-path=%q", a.GetDBPath())
 	}
 }
+
+func TestPathEntriesFallBackToDefaults(t *testing.T) {
+	pointTo(t, filepath.Join(t.TempDir(), "vcs"))
+	entries := PathEntries()
+	if len(entries) != 3 {
+		t.Fatalf("got %+v", entries)
+	}
+	if entries[0].Name != "config" || entries[0].Path != Path() {
+		t.Fatalf("config entry: %+v", entries[0])
+	}
+	if entries[1].Name != "db" || entries[1].Path != state.DefaultPath() {
+		t.Fatalf("db entry: %+v", entries[1])
+	}
+	if entries[2].Name != "aliases" {
+		t.Fatalf("aliases entry: %+v", entries[2])
+	}
+}
+
+func TestPathEntriesUseTheConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "vcs")
+	if err := os.WriteFile(cfg, []byte(`{"db-path":"/tmp/custom.json"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pointTo(t, cfg)
+	entries := PathEntries()
+	if entries[1].Path != "/tmp/custom.json" {
+		t.Fatalf("db entry: %+v", entries[1])
+	}
+}

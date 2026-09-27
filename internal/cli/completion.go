@@ -20,6 +20,7 @@ var completionSpec = shellcomplete.Spec{
 	Flags: []shellcomplete.Flag{
 		{Name: "-h", Bool: true},
 		{Name: "-help", Bool: true},
+		{Name: "--path", Bool: true},
 		{Name: "--version", Bool: true},
 		{Name: "--origin", Bool: true},
 		{Name: "--buildinfo", Bool: true},
