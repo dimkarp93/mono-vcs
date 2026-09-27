@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dimkarp93/install-libs/pathreport"
 	"github.com/dimkarp93/install-libs/xdgpath"
 	"github.com/dimkarp93/mono-vcs/internal/aliases"
 	"github.com/dimkarp93/mono-vcs/internal/app"
@@ -100,7 +101,7 @@ func ApplyDefaults(a *app.Args) error {
 	return nil
 }
 
-func PathEntries() []xdgpath.Entry {
+func PathEntries() []pathreport.Entry {
 	cfg, _ := Load()
 	dbPath := cfg.DBPath
 	if dbPath == "" {
@@ -110,7 +111,7 @@ func PathEntries() []xdgpath.Entry {
 	if aliasesPath == "" {
 		aliasesPath = aliases.DefaultPath()
 	}
-	return []xdgpath.Entry{
+	return []pathreport.Entry{
 		{Name: "config", Path: Path()},
 		{Name: "db", Path: dbPath},
 		{Name: "aliases", Path: aliasesPath},

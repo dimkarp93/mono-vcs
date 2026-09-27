@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/dimkarp93/install-libs/xdgpath"
+	"github.com/dimkarp93/install-libs/pathreport"
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/commands"
 	"github.com/dimkarp93/mono-vcs/internal/config"
@@ -87,7 +87,7 @@ func (r *Runner) Run(argv []string) int {
 	if code, ok := completionSpec.Handle(r.Stdout, r.Stderr, argv); ok {
 		return code
 	}
-	if xdgpath.NewPaths(config.PathEntries()...).HandlePath(r.Stdout, argv) {
+	if pathreport.New(config.PathEntries()...).HandlePath(r.Stdout, argv) {
 		return 0
 	}
 
