@@ -83,6 +83,10 @@ var positionalArgs = map[string]string{
 }
 
 func (r *Runner) Run(argv []string) int {
+	if code, ok := completionSpec.Handle(r.Stdout, r.Stderr, argv); ok {
+		return code
+	}
+
 	a, err := r.parse(argv)
 	if err != nil {
 		if errors.Is(err, errHelp) || errors.Is(err, flag.ErrHelp) {
