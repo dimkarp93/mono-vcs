@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dimkarp93/install-libs/xdgpath"
 	"github.com/dimkarp93/mono-vcs/internal/aliases"
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/state"
@@ -31,15 +32,7 @@ func Path() string {
 	if pathOverride != "" {
 		return pathOverride
 	}
-	base := os.Getenv("XDG_CONFIG_HOME")
-	if base == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = ""
-		}
-		base = filepath.Join(home, ".config")
-	}
-	return filepath.Join(base, "mono-vcs")
+	return xdgpath.ConfigDir("mono-vcs")
 }
 
 func Load() (Config, error) {
