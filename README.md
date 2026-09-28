@@ -190,17 +190,21 @@ $ mono-vcs update
 
 ## `mr` — публикация фичи
 
-`mono-vcs mr [branch]` пушит фиче-ветку во **все** репозитории, где она есть, с
-push-опциями GitLab, то есть одним махом открывает по merge request'у на каждый
-репозиторий фичи:
+`mono-vcs mr [branch]` пушит фиче-ветку во **все** репозитории, где она есть, и
+через `glab mr create` открывает по merge request'у на каждый репозиторий фичи:
 
 ```
-git -C <repo> push -u origin refs/heads/<branch>:refs/heads/<branch> \
-    -o merge_request.create \
-    -o merge_request.remove_source_branch
+git -C <repo> push -u origin refs/heads/<branch>:refs/heads/<branch>
+glab mr create --source-branch <branch> --target-branch <default-branch> \
+    --remove-source-branch --yes \
+    --title "[<ticket>] <text>"
 ```
 
-Заголовок MR всегда начинается с тикета: `-o merge_request.title=[<ticket>] <text>`,
+`glab` обязателен: если его нет в `PATH`, команда завершается с ошибкой ещё до
+пуша (кроме `--dry-run`, для него `glab` не требуется). Опция `--remove-source-branch`
+(«Delete source branch») выставляется всегда, независимо от заголовка.
+
+Заголовок MR всегда начинается с тикета: `--title "[<ticket>] <text>"`,
 где `<ticket>` — начало имени ветки до второго дефиса: подходят и `MVPAY-290`,
 и `MVPAY-290-oplata` — оба дают `MVPAY-290`. Второй сегмент должен быть числом.
 Без `-title` передаётся просто `[<ticket>]`; если `-title` уже начинается с `[`,
@@ -223,7 +227,7 @@ git -C <repo> push -u origin refs/heads/<branch>:refs/heads/<branch> \
 Дополнительно: если хотя бы в одном репозитории фичи есть незакоммиченные
 изменения, не пушится **ничего** — сначала коммит или `mono-vcs stash`.
 Репозитории, где локальная ветка уже совпадает с `origin/<branch>`, пропускаются
-(`up-to-date`) — push не вызывается, а значит и новый MR там не создаётся.
+(`up-to-date`) — ни push, ни `glab mr create` не вызываются, новый MR там не создаётся.
 
 `--dry-run` печатает план без единого git-вызова.
 

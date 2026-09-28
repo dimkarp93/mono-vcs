@@ -234,7 +234,7 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 	case "mr":
 		jobs()
 		dryRun()
-		fs.StringVar(&a.Title, "title", "", "merge request title (passed as merge_request.title push option)")
+		fs.StringVar(&a.Title, "title", "", "merge request title (passed to `glab mr create --title`)")
 	case "alias":
 		fs.BoolVar(&a.Delete, "delete", false, "delete the named alias")
 		fs.BoolVar(&a.Delete, "d", false, "shorthand for -delete")

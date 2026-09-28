@@ -12,6 +12,11 @@ func hasGit() bool {
 	return err == nil
 }
 
+func hasGlab() bool {
+	_, err := exec.LookPath("glab")
+	return err == nil
+}
+
 func reportUnresolved(w io.Writer, paths []string) {
 	if len(paths) == 0 {
 		return

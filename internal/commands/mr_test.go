@@ -1,7 +1,10 @@
 package commands_test
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -19,9 +22,40 @@ func remoteOf(t *testing.T, repo string) string {
 	return strings.TrimSpace(testutil.Run(t, repo, "git", "remote", "get-url", "origin"))
 }
 
-func allowPushOptions(t *testing.T, repo string) {
+func writeFakeGlab(t *testing.T, script string) string {
 	t.Helper()
-	testutil.Run(t, remoteOf(t, repo), "git", "config", "receive.advertisePushOptions", "true")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "glab")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return dir
+}
+
+func fakeGlab(t *testing.T) {
+	t.Helper()
+	writeFakeGlab(t, "#!/bin/sh\nexit 0\n")
+}
+
+func fakeGlabRecording(t *testing.T) string {
+	t.Helper()
+	log := filepath.Join(t.TempDir(), "glab.log")
+	writeFakeGlab(t, fmt.Sprintf("#!/bin/sh\necho \"$@\" >> %s\n", log))
+	return log
+}
+
+func pathWithoutGlab(t *testing.T) {
+	t.Helper()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.Symlink(gitPath, filepath.Join(dir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
 }
 
 func remoteHasBranch(t *testing.T, repo, branch string) bool {
@@ -73,8 +107,7 @@ func TestMRInferredFromContext(t *testing.T) {
 	placeLinked(t, ws, "c")
 	onBranch(t, a, "PROJ-1-feat")
 	onBranch(t, b, "PROJ-1-feat")
-	allowPushOptions(t, a)
-	allowPushOptions(t, b)
+	fakeGlab(t)
 
 	ctx, out, errb := newCtx(t, mrArgs(""), "")
 	if rc := commands.MR(ctx); rc != 0 {
@@ -97,7 +130,7 @@ func TestMRSecondRunIsUpToDate(t *testing.T) {
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
 	onBranch(t, a, "PROJ-1-feat")
-	allowPushOptions(t, a)
+	fakeGlab(t)
 
 	ctx, _, _ := newCtx(t, mrArgs("PROJ-1-feat"), "")
 	if rc := commands.MR(ctx); rc != 0 {
@@ -160,8 +193,6 @@ func TestMRDirtyRefusesEverything(t *testing.T) {
 	b := placeLinked(t, ws, "b")
 	onBranch(t, a, "PROJ-1-feat")
 	onBranch(t, b, "PROJ-1-feat")
-	allowPushOptions(t, a)
-	allowPushOptions(t, b)
 	writeFile(b, "README", "dirty")
 
 	ctx, out, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
@@ -190,8 +221,8 @@ func TestMRDryRunTouchesNothing(t *testing.T) {
 	}
 	o := out.String()
 	contains(t, o, "DRY-RUN: mr PROJ-1-feat")
-	contains(t, o, "merge_request.create")
-	contains(t, o, "merge_request.title=[PROJ-1] my mr")
+	contains(t, o, "glab mr create")
+	contains(t, o, "--title [PROJ-1] my mr")
 	if remoteHasBranch(t, a, "PROJ-1-feat") {
 		t.Fatal("dry-run pushed")
 	}
@@ -202,7 +233,6 @@ func TestMRRefusesBranchWithoutTicket(t *testing.T) {
 	t.Chdir(ws)
 	a := placeLinked(t, ws, "a")
 	onBranch(t, a, "practice-improves")
-	allowPushOptions(t, a)
 
 	ctx, out, errb := newCtx(t, mrArgs("practice-improves"), "")
 	if rc := commands.MR(ctx); rc != 1 {
@@ -213,4 +243,48 @@ func TestMRRefusesBranchWithoutTicket(t *testing.T) {
 	if remoteHasBranch(t, a, "practice-improves") {
 		t.Fatal("push happened for a branch without a ticket")
 	}
+}
+
+func TestMRFailsWithoutGlab(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	onBranch(t, a, "PROJ-1-feat")
+	pathWithoutGlab(t)
+
+	ctx, out, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
+	if rc := commands.MR(ctx); rc != 1 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, errb.String(), "glab not found in PATH")
+	notContains(t, out.String(), "pushing")
+	if remoteHasBranch(t, a, "PROJ-1-feat") {
+		t.Fatal("push happened without glab")
+	}
+}
+
+func TestMRPassesTitleAndRemoveSourceBranchToGlab(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	onBranch(t, a, "PROJ-1-feat")
+	log := fakeGlabRecording(t)
+
+	args := mrArgs("PROJ-1-feat")
+	args.Title = "fix login"
+	ctx, _, errb := newCtx(t, args, "")
+	if rc := commands.MR(ctx); rc != 0 {
+		t.Fatalf("rc=%d err=%s", rc, errb.String())
+	}
+
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := string(data)
+	contains(t, call, "mr create")
+	contains(t, call, "--source-branch PROJ-1-feat")
+	contains(t, call, "--remove-source-branch")
+	contains(t, call, "--yes")
+	contains(t, call, "--title [PROJ-1] fix login")
 }

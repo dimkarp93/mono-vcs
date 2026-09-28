@@ -215,14 +215,14 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	header(w, "mr "+branch, repos)
 	fmt.Fprintf(w, "  Фича — `%s`; ниже перечислены все репозитории, в которых она есть.\n", branch)
 	fmt.Fprintln(w, "  Условие: если хотя бы в одном из них есть незакоммиченные изменения — не пушить ничего.")
-	fmt.Fprintf(w, "  Условие: если локальная `%s` совпадает с origin/%s — пропустить (up-to-date, push не вызывается).\n", branch, branch)
+	fmt.Fprintf(w, "  Условие: если локальная `%s` совпадает с origin/%s — пропустить (up-to-date, push и glab не вызываются).\n", branch, branch)
 	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintf(w, "    git -C <repo-name> push -u origin refs/heads/%s:refs/heads/%s \\\n", branch, branch)
-	fmt.Fprintln(w, "      -o merge_request.create \\")
+	fmt.Fprintf(w, "    git -C <repo-name> push -u origin refs/heads/%s:refs/heads/%s\n", branch, branch)
+	fmt.Fprintf(w, "    glab mr create --source-branch %s --target-branch <default-branch> \\\n", branch)
 	if title != "" {
-		fmt.Fprintln(w, "      -o merge_request.remove_source_branch \\")
-		fmt.Fprintf(w, "      -o merge_request.title=%s\n", title)
+		fmt.Fprintln(w, "      --remove-source-branch --yes \\")
+		fmt.Fprintf(w, "      --title %s\n", title)
 	} else {
-		fmt.Fprintln(w, "      -o merge_request.remove_source_branch")
+		fmt.Fprintln(w, "      --remove-source-branch --yes")
 	}
 }
