@@ -174,6 +174,10 @@ func MR(ctx *app.Context) int {
 			feature, len(dirty), strings.Join(dirty, "\n  ")))
 		return 1
 	}
+	if !hasGlab() {
+		output.Die(ctx.Stderr, "glab not found in PATH")
+		return 1
+	}
 
 	jobs := a.GetJobs()
 	fmt.Fprintf(out, "pushing `%s` and opening merge requests in %d repo(s) (jobs=%d)\n", feature, len(featureRepos), jobs)
@@ -187,7 +191,7 @@ func MR(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results <- gitops.PushMROne(p, feature, a.GLToken, title)
+			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, title)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()

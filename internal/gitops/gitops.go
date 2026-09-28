@@ -33,6 +33,26 @@ func runGit(args ...string) (stdout, stderr string, code int) {
 	return o.String(), e.String() + err.Error(), -1
 }
 
+func runGlab(dir, token string, args ...string) (stdout, stderr string, code int) {
+	cmd := exec.Command("glab", args...)
+	cmd.Dir = dir
+	if token != "" {
+		cmd.Env = append(os.Environ(), "GITLAB_TOKEN="+token)
+	}
+	var o, e bytes.Buffer
+	cmd.Stdout = &o
+	cmd.Stderr = &e
+	err := cmd.Run()
+	if err == nil {
+		return o.String(), e.String(), 0
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return o.String(), e.String(), ee.ExitCode()
+	}
+	return o.String(), e.String() + err.Error(), -1
+}
+
 func firstNonEmpty(a, b string) string {
 	if s := strings.TrimSpace(a); s != "" {
 		return s
@@ -537,7 +557,7 @@ func mergeRequestURL(output string) string {
 	return ""
 }
 
-func PushMROne(path, branch, token, title string) Result {
+func PushMROne(path, branch, mainBranch, token, title string) Result {
 	local := LocalBranchSHA(path, branch)
 	if local == "" {
 		return Result{path, "failed", fmt.Sprintf("no local branch `%s`", branch)}
@@ -547,15 +567,24 @@ func PushMROne(path, branch, token, title string) Result {
 	}
 	args := []string{"-C", path}
 	args = append(args, GitExtraHeaderArgs(token)...)
-	args = append(args, "push", "-u", "origin", "refs/heads/"+branch+":refs/heads/"+branch,
-		"-o", "merge_request.create",
-		"-o", "merge_request.remove_source_branch")
-	if title != "" {
-		args = append(args, "-o", "merge_request.title="+title)
-	}
+	args = append(args, "push", "-u", "origin", "refs/heads/"+branch+":refs/heads/"+branch)
 	out, errOut, rc := runGit(args...)
 	if rc != 0 {
 		return Result{path, "failed", firstNonEmpty(errOut, out)}
 	}
-	return Result{path, "pushed", mergeRequestURL(out + "\n" + errOut)}
+
+	glabArgs := []string{"mr", "create",
+		"--source-branch", branch,
+		"--target-branch", mainBranch,
+		"--remove-source-branch",
+		"--yes",
+	}
+	if title != "" {
+		glabArgs = append(glabArgs, "--title", title)
+	}
+	mrOut, mrErrOut, mrRc := runGlab(path, token, glabArgs...)
+	if mrRc != 0 {
+		return Result{path, "failed", firstNonEmpty(mrErrOut, mrOut)}
+	}
+	return Result{path, "pushed", mergeRequestURL(mrOut + "\n" + mrErrOut)}
 }
