@@ -19,9 +19,9 @@ func Update(ctx *app.Context) int {
 		output.Die(ctx.Stderr, "git not found in PATH")
 		return 1
 	}
-	local := selectLocal(ctx)
+	local := withRemote(selectLocal(ctx))
 	if len(local) == 0 {
-		fmt.Fprintln(out, "no local git repositories found under current directory")
+		fmt.Fprintln(out, "no local git repositories with a remote found under current directory")
 		return 0
 	}
 	if a.DryRun {
