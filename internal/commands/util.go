@@ -5,6 +5,8 @@ import (
 	"io"
 	"os/exec"
 	"sort"
+
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
 )
 
 func hasGit() bool {
@@ -18,7 +20,13 @@ func hasGlab() bool {
 }
 
 func pendingUpdateStash(paths []string) []string {
-	panic("not implemented")
+	var out []string
+	for _, p := range paths {
+		if gitops.UpdateStashRef(p) != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func reportUnresolved(w io.Writer, paths []string) {
