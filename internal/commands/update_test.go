@@ -88,7 +88,8 @@ func TestUpdateSkipsRepoWithoutResolvableDefault(t *testing.T) {
 	ws := t.TempDir()
 	t.Chdir(ws)
 	testutil.MakeClonedRepo(t, ws, "good", "main")
-	testutil.MakeRepo(t, ws, "orphan", "trunk")
+	orphan := testutil.MakeRepo(t, ws, "orphan", "trunk")
+	testutil.MakeRemote(t, t.TempDir(), orphan, "trunk")
 
 	ctx, out, errb := newCtx(t, updateArgs(), "")
 	if rc := commands.Update(ctx); rc != 1 {
@@ -97,4 +98,45 @@ func TestUpdateSkipsRepoWithoutResolvableDefault(t *testing.T) {
 	contains(t, errb.String(), "the default branch is unknown")
 	contains(t, errb.String(), "1 repo(s) skipped")
 	contains(t, out.String(), "good")
+}
+
+func TestUpdateSkipsRepoWithoutRemote(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	placeLinked(t, ws, "with")
+	testutil.MakeRepo(t, ws, "without", "main")
+
+	ctx, out, errb := newCtx(t, updateArgs(), "")
+	if rc := commands.Update(ctx); rc != 0 {
+		t.Fatalf("rc=%d err=%s", rc, errb.String())
+	}
+	contains(t, out.String(), "with")
+	notContains(t, out.String(), "without")
+	notContains(t, errb.String(), "without")
+}
+
+func TestUpdateNoReposWithRemote(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	testutil.MakeRepo(t, ws, "without", "main")
+
+	ctx, out, _ := newCtx(t, updateArgs(), "")
+	if rc := commands.Update(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	contains(t, out.String(), "with a remote")
+}
+
+func TestUpdateRemoteFlagFilters(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	placeLinked(t, ws, "p")
+	a := updateArgs()
+	a.Remote = []string{"github.com"}
+
+	ctx, out, _ := newCtx(t, a, "")
+	if rc := commands.Update(ctx); rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	notContains(t, out.String(), "[1/1]")
 }
