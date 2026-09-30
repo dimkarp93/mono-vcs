@@ -209,19 +209,37 @@ func shortSHA(sha string) string {
 	return sha
 }
 
+func restoreUpdateStash(path, orig string, stashed bool) string {
+	if !stashed {
+		return ""
+	}
+	if orig != "" {
+		runGit("-C", path, "checkout", orig)
+	}
+	if state, detail := PopUpdateStash(path); state == "conflict" {
+		return fmt.Sprintf("; restoring local changes failed, they stay in `git stash`: %s", detail)
+	}
+	return ""
+}
+
 func UpdateMainOne(path, token, branch string) (Result, string) {
-	if IsDirty(path) {
-		return Result{path, "dirty", fmt.Sprintf("uncommitted changes — refusing to touch %s", branch)}, ""
+	if RebaseInProgress(path) {
+		return Result{path, "failed", "rebase already in progress — finish or abort it first"}, ""
 	}
 	current := CurrentBranch(path)
 	orig := ""
 	if current != "" && current != branch {
 		orig = current
 	}
+	stashed, stashErr := StashForUpdate(path, current)
+	if stashErr != "" {
+		return Result{path, "failed", stashErr}, ""
+	}
 	if current != branch {
 		out, errOut, rc := runGit("-C", path, "checkout", branch)
 		if rc != 0 {
-			return Result{path, "failed", firstNonEmpty(errOut, out)}, ""
+			note := restoreUpdateStash(path, "", stashed)
+			return Result{path, "failed", firstNonEmpty(errOut, out) + note}, ""
 		}
 	}
 	args := []string{"-C", path}
@@ -229,20 +247,33 @@ func UpdateMainOne(path, token, branch string) (Result, string) {
 	args = append(args, "pull", "--ff-only", "--quiet")
 	out, errOut, rc := runGit(args...)
 	if rc != 0 {
-		return Result{path, "failed", firstNonEmpty(errOut, out)}, orig
+		note := restoreUpdateStash(path, orig, stashed)
+		return Result{path, "failed", firstNonEmpty(errOut, out) + note}, ""
 	}
 	combined := strings.TrimSpace(out + errOut)
 	status := "up-to-date"
 	if combined != "" {
 		status = "updated"
 	}
+	if stashed && orig == "" {
+		if state, detail := PopUpdateStash(path); state == "conflict" {
+			return Result{path, "stash-conflict", fmt.Sprintf("restoring local changes onto %s conflicted, they stay in `git stash`: %s", branch, detail)}, ""
+		}
+	}
 	return Result{path, status, combined}, orig
+}
+
+func stashKeptNote(path string) string {
+	if UpdateStashRef(path) == "" {
+		return ""
+	}
+	return "; local changes are kept in `git stash` — run `git stash pop` once the rebase is finished"
 }
 
 func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr io.Writer) (string, string) {
 	out, errOut, rc := runGit("-C", path, "checkout", origBranch)
 	if rc != 0 {
-		return "failed", firstNonEmpty(errOut, out)
+		return "failed", firstNonEmpty(errOut, out) + stashKeptNote(path)
 	}
 
 	cmd := exec.Command("git", "-C", path, "rebase", branch)
@@ -250,12 +281,55 @@ func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr 
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if cmd.Run() == nil {
+		if state, detail := PopUpdateStash(path); state == "conflict" {
+			return "stash-conflict", fmt.Sprintf("%s rebased onto %s, but restoring local changes conflicted, they stay in `git stash`: %s", origBranch, branch, detail)
+		}
 		return "rebased", fmt.Sprintf("%s rebased onto %s", origBranch, branch)
 	}
 	if RebaseInProgress(path) {
-		return "conflict", fmt.Sprintf("%s: rebase onto %s hit conflicts", origBranch, branch)
+		return "conflict", fmt.Sprintf("%s: rebase onto %s hit conflicts%s", origBranch, branch, stashKeptNote(path))
 	}
-	return "failed", fmt.Sprintf("rebase of %s onto %s failed", origBranch, branch)
+	return "failed", fmt.Sprintf("rebase of %s onto %s failed%s", origBranch, branch, restoreUpdateStash(path, "", UpdateStashRef(path) != ""))
+}
+
+const UpdateStashPrefix = "mono-vcs update "
+
+func UpdateStashRef(path string) string {
+	out, _, rc := runGit("-C", path, "stash", "list", "--format=%gd%x09%gs")
+	if rc != 0 {
+		return ""
+	}
+	for _, l := range strings.Split(out, "\n") {
+		ref, subject, ok := strings.Cut(l, "\t")
+		if ok && strings.Contains(subject, UpdateStashPrefix) {
+			return ref
+		}
+	}
+	return ""
+}
+
+func StashForUpdate(path, branch string) (bool, string) {
+	if !IsDirty(path) {
+		return false, ""
+	}
+	out, errOut, rc := runGit("-C", path, "stash", "push", "--include-untracked",
+		"-m", UpdateStashPrefix+branch)
+	if rc != 0 {
+		return false, firstNonEmpty(errOut, out)
+	}
+	return true, ""
+}
+
+func PopUpdateStash(path string) (string, string) {
+	ref := UpdateStashRef(path)
+	if ref == "" {
+		return "nothing", ""
+	}
+	out, errOut, rc := runGit("-C", path, "stash", "pop", ref)
+	if rc != 0 {
+		return "conflict", firstNonEmpty(errOut, out)
+	}
+	return "popped", ""
 }
 
 func StashOne(path string) Result {

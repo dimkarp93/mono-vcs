@@ -95,15 +95,18 @@ func Pull(w io.Writer, a *app.Args, repos []string) {
 func Update(w io.Writer, a *app.Args, repos []string) {
 	header(w, "update", repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
-	fmt.Fprintln(w, "  Условие: если в репозитории есть незакоммиченные изменения "+
-		"(staged / unstaged / untracked) — пропустить с ошибкой.")
-	fmt.Fprintln(w, "  Иначе:")
-	fmt.Fprintln(w, "    Условие: если текущая ветка ≠ <default-branch>")
-	fmt.Fprintln(w, "      git -C <repo-name> checkout <default-branch>")
-	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
-	fmt.Fprintln(w, "    Условие: если на входе была другая ветка <orig>")
-	fmt.Fprintln(w, "      git -C <repo-name> checkout <orig>")
-	fmt.Fprintln(w, "      git -C <repo-name> rebase <default-branch>   # при конфликте остановится для ручного разрешения")
+	fmt.Fprintln(w, "  Берутся только репозитории, у которых есть git remote.")
+	fmt.Fprintln(w, "  Условие: если идёт rebase — пропустить с ошибкой.")
+	fmt.Fprintln(w, "  Условие: если есть незакоммиченные изменения (staged / unstaged / untracked)")
+	fmt.Fprintln(w, `    git -C <repo-name> stash push --include-untracked -m "mono-vcs update <orig-branch>"`)
+	fmt.Fprintln(w, "  Условие: если текущая ветка ≠ <default-branch>")
+	fmt.Fprintln(w, "    git -C <repo-name> checkout <default-branch>")
+	fmt.Fprintln(w, "  git -C <repo-name> pull --ff-only --quiet")
+	fmt.Fprintln(w, "  Условие: если на входе была другая ветка <orig>")
+	fmt.Fprintln(w, "    git -C <repo-name> checkout <orig>")
+	fmt.Fprintln(w, "    git -C <repo-name> rebase <default-branch>   # при конфликте остановится для ручного разрешения, стэш остаётся")
+	fmt.Fprintln(w, "  Условие: если изменения были спрятаны и rebase прошёл")
+	fmt.Fprintln(w, "    git -C <repo-name> stash pop   # при конфликте стэш остаётся")
 }
 
 func Stash(w io.Writer, a *app.Args, repos []string) {

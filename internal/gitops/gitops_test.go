@@ -328,12 +328,18 @@ func TestPullDefaultOneDirtyOnDefaultBranch(t *testing.T) {
 	}
 }
 
-func TestUpdateMainDirtySkipped(t *testing.T) {
+func TestUpdateMainDirtyRestoredOnPullFailure(t *testing.T) {
 	r := testutil.MakeRepo(t, t.TempDir(), "r", "main")
 	write(t, r, "README", "dirty")
 	res, orig := gitops.UpdateMainOne(r, "", "main")
-	if res.Status != "dirty" || orig != "" {
+	if res.Status != "failed" || orig != "" {
 		t.Fatalf("got %+v orig=%q", res, orig)
+	}
+	if !gitops.IsDirty(r) {
+		t.Fatal("local changes must be restored")
+	}
+	if ref := gitops.UpdateStashRef(r); ref != "" {
+		t.Fatalf("stash left behind: %s", ref)
 	}
 }
 

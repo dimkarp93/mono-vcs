@@ -55,3 +55,8 @@ func Remotes(path string) ([]Remote, error) {
 	}
 	return rs, nil
 }
+
+func HasRemote(path string) bool {
+	rs, err := Remotes(path)
+	return err == nil && len(rs) > 0
+}

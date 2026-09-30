@@ -19,9 +19,9 @@ func Update(ctx *app.Context) int {
 		output.Die(ctx.Stderr, "git not found in PATH")
 		return 1
 	}
-	local := selectLocal(ctx)
+	local := withRemote(selectLocal(ctx))
 	if len(local) == 0 {
-		fmt.Fprintln(out, "no local git repositories found under current directory")
+		fmt.Fprintln(out, "no local git repositories with a remote found under current directory")
 		return 0
 	}
 	if a.DryRun {
@@ -58,7 +58,8 @@ func Update(ctx *app.Context) int {
 	}
 	go func() { wg.Wait(); close(results) }()
 
-	failures, blocked, unresolved, done, total := 0, 0, 0, 0, len(local)
+	failures, unresolved, done, total := 0, 0, 0, len(local)
+	var stashConflicts []string
 	var toRebase [][3]string
 	for r := range results {
 		done++
@@ -66,9 +67,9 @@ func Update(ctx *app.Context) int {
 		case "failed":
 			failures++
 			fmt.Fprintf(ctx.Stderr, "[%d/%d] FAILED     %s: %s\n", done, total, r.res.Path, r.res.Detail)
-		case "dirty":
-			blocked++
-			fmt.Fprintf(ctx.Stderr, "[%d/%d] ERROR      %s: %s\n", done, total, r.res.Path, r.res.Detail)
+		case "stash-conflict":
+			stashConflicts = append(stashConflicts, r.res.Path)
+			fmt.Fprintf(ctx.Stderr, "[%d/%d] CONFLICT   %s: %s\n", done, total, r.res.Path, r.res.Detail)
 		case "unresolved":
 			unresolved++
 			fmt.Fprintf(ctx.Stderr, "[%d/%d] ERROR      %s: %s\n", done, total, r.res.Path, r.res.Detail)
@@ -94,6 +95,9 @@ func Update(ctx *app.Context) int {
 			case "conflict":
 				conflicts = append(conflicts, path)
 				fmt.Fprintf(ctx.Stderr, "    %sconflict%s   %s\n", colors.Yellow, colors.Reset, detail)
+			case "stash-conflict":
+				stashConflicts = append(stashConflicts, path)
+				fmt.Fprintf(ctx.Stderr, "    %sconflict%s   %s\n", colors.Yellow, colors.Reset, detail)
 			default:
 				failures++
 				fmt.Fprintf(ctx.Stderr, "    %sFAILED%s     %s\n", colors.Red, colors.Reset, detail)
@@ -102,26 +106,40 @@ func Update(ctx *app.Context) int {
 	}
 
 	if len(conflicts) > 0 {
-		fmt.Fprintf(ctx.Stderr, "\n%d repo(s) left mid-rebase — resolve, then `git rebase --continue` (or `git rebase --abort`):\n", len(conflicts))
+		fmt.Fprintf(ctx.Stderr, "\n%d repo(s) left mid-rebase — resolve, then `git rebase --continue` (or `git rebase --abort`), then `git stash pop` if local changes were stashed:\n", len(conflicts))
 		for _, path := range conflicts {
 			fmt.Fprintf(ctx.Stderr, "  %s\n", path)
 		}
 	}
 
-	if failures > 0 || blocked > 0 || unresolved > 0 {
+	if len(stashConflicts) > 0 {
+		fmt.Fprintf(ctx.Stderr, "\n%d repo(s) kept local changes in `git stash` because restoring them conflicted — resolve the conflicts, then `git stash drop`:\n", len(stashConflicts))
+		for _, path := range stashConflicts {
+			fmt.Fprintf(ctx.Stderr, "  %s\n", path)
+		}
+	}
+
+	if failures > 0 || unresolved > 0 {
 		if unresolved > 0 {
 			fmt.Fprintf(ctx.Stderr, "%d repo(s) skipped — the default branch could not be determined\n", unresolved)
-		}
-		if blocked > 0 {
-			fmt.Fprintf(ctx.Stderr, "%d repo(s) skipped due to uncommitted changes\n", blocked)
 		}
 		if failures > 0 {
 			fmt.Fprintf(ctx.Stderr, "%d update(s) failed\n", failures)
 		}
 		return 1
 	}
-	if len(conflicts) > 0 {
+	if len(conflicts) > 0 || len(stashConflicts) > 0 {
 		return 1
 	}
 	return 0
+}
+
+func withRemote(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if gitops.HasRemote(p) {
+			out = append(out, p)
+		}
+	}
+	return out
 }

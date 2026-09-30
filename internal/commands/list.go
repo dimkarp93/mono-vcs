@@ -19,6 +19,7 @@ type localInfo struct {
 	branch   string
 	dirty    bool
 	hasLocal bool
+	stash    bool
 }
 
 func mainInSync(p gitlab.Project, localPath, glURL, token, branch string) (bool, bool) {
@@ -161,7 +162,7 @@ func List(ctx *app.Context) int {
 				defer func() { <-sem }()
 				b, d, h := gitops.LocalInfo(path)
 				mu.Lock()
-				info[path] = localInfo{b, d, h}
+				info[path] = localInfo{b, d, h, gitops.UpdateStashRef(path) != ""}
 				mu.Unlock()
 			}(path)
 		}
@@ -197,7 +198,7 @@ func List(ctx *app.Context) int {
 			if inRemote && !inLocal {
 				return true
 			}
-			if inLocal && ci.dirty {
+			if inLocal && (ci.dirty || ci.stash) {
 				return true
 			}
 			if inLocal && onFeature {
@@ -233,11 +234,12 @@ func List(ctx *app.Context) int {
 		inRemote := remote[path]
 		inLocal := local[path]
 		var cur string
-		var dirty bool
+		var dirty, stash bool
 		if inLocal {
 			ci := info[path]
 			cur = ci.branch
 			dirty = ci.dirty
+			stash = ci.stash
 		}
 		onFeature := cur != "" && cur != defaultOf[path]
 		syncCode, ok := inSync[path]
@@ -268,6 +270,9 @@ func List(ctx *app.Context) int {
 		}
 		if inLocal && dirty {
 			line += " " + colors.Colorize("✗", colors.Yellow, useColor)
+		}
+		if inLocal && stash {
+			line += " " + colors.Colorize("⚑", colors.Red, useColor)
 		}
 		fmt.Fprintln(out, strings.TrimRight(line, " "))
 	}
@@ -306,6 +311,7 @@ func List(ctx *app.Context) int {
 	fmt.Fprintf(out, "  %s — current branch of local repo\n", colors.Colorize("[branch]", colors.Red, useColor))
 	fmt.Fprintf(out, "  %s   — remote alias of the repo (see remotes: above)\n", colors.Colorize("alias", colors.Gray, useColor))
 	fmt.Fprintf(out, "  %s        — uncommitted changes in working tree\n", colors.Colorize("✗", colors.Yellow, useColor))
+	fmt.Fprintf(out, "  %s        — local changes kept in git stash by `mono-vcs update` (run `git stash pop`)\n", colors.Colorize("⚑", colors.Red, useColor))
 	return 0
 }
 

@@ -87,6 +87,13 @@ func Features(ctx *app.Context) int {
 	}
 	output.PrintFeaturesTable(out, rows, colors.Enabled())
 	fmt.Fprintf(out, "\n%d feature branch(es) across %d repo(s)\n\n", len(rows), len(local))
+	if stashed := pendingUpdateStash(local); len(stashed) > 0 {
+		fmt.Fprintf(out, "%d repo(s) hold local changes in `git stash` left by `mono-vcs update` — run `git stash pop`:\n", len(stashed))
+		for _, p := range stashed {
+			fmt.Fprintf(out, "  %s\n", p)
+		}
+		fmt.Fprintln(out)
+	}
 	output.PrintRemotesLegend(out, legendRows(remoteSet.Subset(local), custom), colors.Enabled())
 	if len(unresolved) > 0 {
 		reportUnresolved(ctx.Stderr, unresolved)
