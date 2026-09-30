@@ -174,6 +174,11 @@ func MR(ctx *app.Context) int {
 			feature, len(dirty), strings.Join(dirty, "\n  ")))
 		return 1
 	}
+	if stashed := pendingUpdateStash(featureRepos); len(stashed) > 0 {
+		output.Die(ctx.Stderr, fmt.Sprintf("local changes left in `git stash` by `mono-vcs update` would be missing from `%s` — run `git stash pop` (or `git stash drop`) first (%d):\n  %s",
+			feature, len(stashed), strings.Join(stashed, "\n  ")))
+		return 1
+	}
 	if !hasGlab() {
 		output.Die(ctx.Stderr, "glab not found in PATH")
 		return 1
