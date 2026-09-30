@@ -209,19 +209,37 @@ func shortSHA(sha string) string {
 	return sha
 }
 
+func restoreUpdateStash(path, orig string, stashed bool) string {
+	if !stashed {
+		return ""
+	}
+	if orig != "" {
+		runGit("-C", path, "checkout", orig)
+	}
+	if state, detail := PopUpdateStash(path); state == "conflict" {
+		return fmt.Sprintf("; restoring local changes failed, they stay in `git stash`: %s", detail)
+	}
+	return ""
+}
+
 func UpdateMainOne(path, token, branch string) (Result, string) {
-	if IsDirty(path) {
-		return Result{path, "dirty", fmt.Sprintf("uncommitted changes — refusing to touch %s", branch)}, ""
+	if RebaseInProgress(path) {
+		return Result{path, "failed", "rebase already in progress — finish or abort it first"}, ""
 	}
 	current := CurrentBranch(path)
 	orig := ""
 	if current != "" && current != branch {
 		orig = current
 	}
+	stashed, stashErr := StashForUpdate(path, current)
+	if stashErr != "" {
+		return Result{path, "failed", stashErr}, ""
+	}
 	if current != branch {
 		out, errOut, rc := runGit("-C", path, "checkout", branch)
 		if rc != 0 {
-			return Result{path, "failed", firstNonEmpty(errOut, out)}, ""
+			note := restoreUpdateStash(path, "", stashed)
+			return Result{path, "failed", firstNonEmpty(errOut, out) + note}, ""
 		}
 	}
 	args := []string{"-C", path}
@@ -229,12 +247,18 @@ func UpdateMainOne(path, token, branch string) (Result, string) {
 	args = append(args, "pull", "--ff-only", "--quiet")
 	out, errOut, rc := runGit(args...)
 	if rc != 0 {
-		return Result{path, "failed", firstNonEmpty(errOut, out)}, orig
+		note := restoreUpdateStash(path, orig, stashed)
+		return Result{path, "failed", firstNonEmpty(errOut, out) + note}, ""
 	}
 	combined := strings.TrimSpace(out + errOut)
 	status := "up-to-date"
 	if combined != "" {
 		status = "updated"
+	}
+	if stashed && orig == "" {
+		if state, detail := PopUpdateStash(path); state == "conflict" {
+			return Result{path, "stash-conflict", fmt.Sprintf("restoring local changes onto %s conflicted, they stay in `git stash`: %s", branch, detail)}, ""
+		}
 	}
 	return Result{path, status, combined}, orig
 }
