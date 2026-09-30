@@ -287,7 +287,15 @@ func StashForUpdate(path, branch string) (bool, string) {
 }
 
 func PopUpdateStash(path string) (string, string) {
-	panic("not implemented")
+	ref := UpdateStashRef(path)
+	if ref == "" {
+		return "nothing", ""
+	}
+	out, errOut, rc := runGit("-C", path, "stash", "pop", ref)
+	if rc != 0 {
+		return "conflict", firstNonEmpty(errOut, out)
+	}
+	return "popped", ""
 }
 
 func StashOne(path string) Result {
