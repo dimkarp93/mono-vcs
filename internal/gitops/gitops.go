@@ -261,7 +261,17 @@ func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr 
 const UpdateStashPrefix = "mono-vcs update "
 
 func UpdateStashRef(path string) string {
-	panic("not implemented")
+	out, _, rc := runGit("-C", path, "stash", "list", "--format=%gd%x09%gs")
+	if rc != 0 {
+		return ""
+	}
+	for _, l := range strings.Split(out, "\n") {
+		ref, subject, ok := strings.Cut(l, "\t")
+		if ok && strings.Contains(subject, UpdateStashPrefix) {
+			return ref
+		}
+	}
+	return ""
 }
 
 func StashForUpdate(path, branch string) (bool, string) {
