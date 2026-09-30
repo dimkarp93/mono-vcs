@@ -275,7 +275,15 @@ func UpdateStashRef(path string) string {
 }
 
 func StashForUpdate(path, branch string) (bool, string) {
-	panic("not implemented")
+	if !IsDirty(path) {
+		return false, ""
+	}
+	out, errOut, rc := runGit("-C", path, "stash", "push", "--include-untracked",
+		"-m", UpdateStashPrefix+branch)
+	if rc != 0 {
+		return false, firstNonEmpty(errOut, out)
+	}
+	return true, ""
 }
 
 func PopUpdateStash(path string) (string, string) {
