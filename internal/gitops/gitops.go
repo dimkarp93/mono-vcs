@@ -263,10 +263,17 @@ func UpdateMainOne(path, token, branch string) (Result, string) {
 	return Result{path, status, combined}, orig
 }
 
+func stashKeptNote(path string) string {
+	if UpdateStashRef(path) == "" {
+		return ""
+	}
+	return "; local changes are kept in `git stash` — run `git stash pop` once the rebase is finished"
+}
+
 func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr io.Writer) (string, string) {
 	out, errOut, rc := runGit("-C", path, "checkout", origBranch)
 	if rc != 0 {
-		return "failed", firstNonEmpty(errOut, out)
+		return "failed", firstNonEmpty(errOut, out) + stashKeptNote(path)
 	}
 
 	cmd := exec.Command("git", "-C", path, "rebase", branch)
@@ -274,12 +281,15 @@ func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr 
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if cmd.Run() == nil {
+		if state, detail := PopUpdateStash(path); state == "conflict" {
+			return "stash-conflict", fmt.Sprintf("%s rebased onto %s, but restoring local changes conflicted, they stay in `git stash`: %s", origBranch, branch, detail)
+		}
 		return "rebased", fmt.Sprintf("%s rebased onto %s", origBranch, branch)
 	}
 	if RebaseInProgress(path) {
-		return "conflict", fmt.Sprintf("%s: rebase onto %s hit conflicts", origBranch, branch)
+		return "conflict", fmt.Sprintf("%s: rebase onto %s hit conflicts%s", origBranch, branch, stashKeptNote(path))
 	}
-	return "failed", fmt.Sprintf("rebase of %s onto %s failed", origBranch, branch)
+	return "failed", fmt.Sprintf("rebase of %s onto %s failed%s", origBranch, branch, restoreUpdateStash(path, "", UpdateStashRef(path) != ""))
 }
 
 const UpdateStashPrefix = "mono-vcs update "
