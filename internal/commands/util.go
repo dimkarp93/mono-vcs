@@ -17,6 +17,10 @@ func hasGlab() bool {
 	return err == nil
 }
 
+func pendingUpdateStash(paths []string) []string {
+	panic("not implemented")
+}
+
 func reportUnresolved(w io.Writer, paths []string) {
 	if len(paths) == 0 {
 		return
