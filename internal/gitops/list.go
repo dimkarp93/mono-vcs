@@ -55,3 +55,7 @@ func Remotes(path string) ([]Remote, error) {
 	}
 	return rs, nil
 }
+
+func HasRemote(path string) bool {
+	panic("not implemented")
+}

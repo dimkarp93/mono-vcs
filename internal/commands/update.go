@@ -125,3 +125,7 @@ func Update(ctx *app.Context) int {
 	}
 	return 0
 }
+
+func withRemote(paths []string) []string {
+	panic("not implemented")
+}
