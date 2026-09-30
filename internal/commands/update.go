@@ -127,5 +127,11 @@ func Update(ctx *app.Context) int {
 }
 
 func withRemote(paths []string) []string {
-	panic("not implemented")
+	var out []string
+	for _, p := range paths {
+		if gitops.HasRemote(p) {
+			out = append(out, p)
+		}
+	}
+	return out
 }
