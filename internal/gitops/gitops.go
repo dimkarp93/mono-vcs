@@ -258,6 +258,20 @@ func RebaseOne(path, origBranch, branch string, stdin io.Reader, stdout, stderr 
 	return "failed", fmt.Sprintf("rebase of %s onto %s failed", origBranch, branch)
 }
 
+const UpdateStashPrefix = "mono-vcs update "
+
+func UpdateStashRef(path string) string {
+	panic("not implemented")
+}
+
+func StashForUpdate(path, branch string) (bool, string) {
+	panic("not implemented")
+}
+
+func PopUpdateStash(path string) (string, string) {
+	panic("not implemented")
+}
+
 func StashOne(path string) Result {
 	if _, _, rc := runGit("-C", path, "diff", "--quiet"); rc == 0 {
 		return Result{path, "nothing", ""}
