@@ -222,10 +222,6 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	fmt.Fprintln(w, "  Иначе:")
 	fmt.Fprintf(w, "    git -C <repo-name> push -u origin refs/heads/%s:refs/heads/%s\n", branch, branch)
 	fmt.Fprintf(w, "    glab mr create --source-branch %s --target-branch <default-branch> \\\n", branch)
-	if title != "" {
-		fmt.Fprintln(w, "      --remove-source-branch --yes \\")
-		fmt.Fprintf(w, "      --title %s\n", title)
-	} else {
-		fmt.Fprintln(w, "      --remove-source-branch --yes")
-	}
+	fmt.Fprintln(w, "      --remove-source-branch --fill --yes \\")
+	fmt.Fprintf(w, "      --title %s\n", title)
 }

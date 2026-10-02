@@ -196,7 +196,7 @@ $ mono-vcs update
 ```
 git -C <repo> push -u origin refs/heads/<branch>:refs/heads/<branch>
 glab mr create --source-branch <branch> --target-branch <default-branch> \
-    --remove-source-branch --yes \
+    --remove-source-branch --fill --yes \
     --title "[<ticket>] <text>"
 ```
 
@@ -207,8 +207,19 @@ glab mr create --source-branch <branch> --target-branch <default-branch> \
 Заголовок MR всегда начинается с тикета: `--title "[<ticket>] <text>"`,
 где `<ticket>` — начало имени ветки до второго дефиса: подходят и `MVPAY-290`,
 и `MVPAY-290-oplata` — оба дают `MVPAY-290`. Второй сегмент должен быть числом.
-Без `-title` передаётся просто `[<ticket>]`; если `-title` уже начинается с `[`,
-префикс не дублируется. Ветка, из имени которой тикет не вычленяется
+Без `-title` `<text>` берётся из темы первого коммита ветки (первого после
+расхождения с дефолтной веткой), отдельно для каждого репозитория; ведущий
+`[<ticket>]` в теме отбрасывается, чтобы не дублироваться: коммит
+`[PROJ-123] fix problem` и коммит `fix problem` дают заголовок
+`[PROJ-123] fix problem`. Если подходящего коммита нет, передаётся просто
+`[<ticket>]`. Если `-title` уже начинается с `[`, префикс не дублируется.
+
+`--fill` нужен `glab`: он запускается без терминала, а `glab mr create` с одним
+`--title` без `--description` в таком режиме отказывается работать
+(`--title or --fill required for non-interactive mode`). С `--fill` заголовок
+остаётся нашим, а описание `glab` собирает из коммитов ветки.
+
+Ветка, из имени которой тикет не вычленяется
 (`hotfix`, `practice-improves`), отвергается — MR не создаётся.
 
 Фича определяется однозначно, иначе команда ничего не делает:

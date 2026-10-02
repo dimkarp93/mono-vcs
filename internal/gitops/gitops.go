@@ -631,7 +631,24 @@ func mergeRequestURL(output string) string {
 	return ""
 }
 
-func PushMROne(path, branch, mainBranch, token, title string) Result {
+func FirstCommitSubject(path, branch, mainBranch string) string {
+	base := DefaultCompareRef(path, mainBranch)
+	if base == "" {
+		return ""
+	}
+	out, _, rc := runGit("-C", path, "log", "--reverse", "--no-merges", "--format=%s", base+"..refs/heads/"+branch)
+	if rc != 0 {
+		return ""
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if s := strings.TrimSpace(line); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func PushMROne(path, branch, mainBranch, token string, titleFor func(subject string) string) Result {
 	local := LocalBranchSHA(path, branch)
 	if local == "" {
 		return Result{path, "failed", fmt.Sprintf("no local branch `%s`", branch)}
@@ -651,9 +668,10 @@ func PushMROne(path, branch, mainBranch, token, title string) Result {
 		"--source-branch", branch,
 		"--target-branch", mainBranch,
 		"--remove-source-branch",
+		"--fill",
 		"--yes",
 	}
-	if title != "" {
+	if title := titleFor(FirstCommitSubject(path, branch, mainBranch)); title != "" {
 		glabArgs = append(glabArgs, "--title", title)
 	}
 	mrOut, mrErrOut, mrRc := runGlab(path, token, glabArgs...)
