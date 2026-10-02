@@ -288,3 +288,71 @@ func TestMRPassesTitleAndRemoveSourceBranchToGlab(t *testing.T) {
 	contains(t, call, "--yes")
 	contains(t, call, "--title [PROJ-1] fix login")
 }
+
+func TestMRTitleFromFirstCommitOfBranch(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	testutil.Run(t, a, "git", "checkout", "-b", "PROJ-1-feat")
+	testutil.Commit(t, a, "[PROJ-1] fix problem", "one.txt", "1")
+	testutil.Commit(t, a, "second commit", "two.txt", "2")
+	log := fakeGlabRecording(t)
+
+	ctx, _, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
+	if rc := commands.MR(ctx); rc != 0 {
+		t.Fatalf("rc=%d err=%s", rc, errb.String())
+	}
+
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := string(data)
+	contains(t, call, "--title [PROJ-1] fix problem")
+	contains(t, call, "--fill")
+	notContains(t, call, "second commit")
+}
+
+func TestMRTitleFromFirstCommitWithoutTicketPrefix(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	testutil.Run(t, a, "git", "checkout", "-b", "PROJ-1-feat")
+	testutil.Commit(t, a, "fix problem", "one.txt", "1")
+	log := fakeGlabRecording(t)
+
+	ctx, _, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
+	if rc := commands.MR(ctx); rc != 0 {
+		t.Fatalf("rc=%d err=%s", rc, errb.String())
+	}
+
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contains(t, string(data), "--title [PROJ-1] fix problem")
+}
+
+func TestMRTitleDiffersPerRepo(t *testing.T) {
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	b := placeLinked(t, ws, "b")
+	testutil.Run(t, a, "git", "checkout", "-b", "PROJ-1-feat")
+	testutil.Commit(t, a, "change in a", "one.txt", "1")
+	testutil.Run(t, b, "git", "checkout", "-b", "PROJ-1-feat")
+	testutil.Commit(t, b, "[PROJ-1] change in b", "one.txt", "1")
+	log := fakeGlabRecording(t)
+
+	ctx, _, errb := newCtx(t, mrArgs("PROJ-1-feat"), "")
+	if rc := commands.MR(ctx); rc != 0 {
+		t.Fatalf("rc=%d err=%s", rc, errb.String())
+	}
+
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contains(t, string(data), "--title [PROJ-1] change in a")
+	contains(t, string(data), "--title [PROJ-1] change in b")
+}

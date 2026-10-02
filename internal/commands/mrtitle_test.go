@@ -44,3 +44,41 @@ func TestMRTitle(t *testing.T) {
 		}
 	}
 }
+
+func TestStripTicket(t *testing.T) {
+	cases := []struct {
+		ticket  string
+		subject string
+		want    string
+	}{
+		{"PROJ-123", "fix problem", "fix problem"},
+		{"PROJ-123", "[PROJ-123] fix problem", "fix problem"},
+		{"PROJ-123", "  [PROJ-123]   fix problem  ", "fix problem"},
+		{"PROJ-123", "[PROJ-123]", ""},
+		{"PROJ-123", "[OTHER-1] fix problem", "[OTHER-1] fix problem"},
+		{"PROJ-123", "", ""},
+	}
+	for _, c := range cases {
+		if got := stripTicket(c.ticket, c.subject); got != c.want {
+			t.Fatalf("stripTicket(%q, %q) = %q; want %q", c.ticket, c.subject, got, c.want)
+		}
+	}
+}
+
+func TestMRTitleFor(t *testing.T) {
+	cases := []struct {
+		explicit string
+		subject  string
+		want     string
+	}{
+		{"", "fix problem", "[PROJ-123] fix problem"},
+		{"", "[PROJ-123] fix problem", "[PROJ-123] fix problem"},
+		{"", "", "[PROJ-123]"},
+		{"manual", "fix problem", "[PROJ-123] manual"},
+	}
+	for _, c := range cases {
+		if got := mrTitleFor("PROJ-123", c.explicit)(c.subject); got != c.want {
+			t.Fatalf("mrTitleFor(%q)(%q) = %q; want %q", c.explicit, c.subject, got, c.want)
+		}
+	}
+}

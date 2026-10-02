@@ -116,6 +116,31 @@ func mrTitle(ticket, title string) string {
 	return "[" + ticket + "] " + title
 }
 
+func stripTicket(ticket, subject string) string {
+	subject = strings.TrimSpace(subject)
+	prefix := "[" + ticket + "]"
+	if strings.HasPrefix(subject, prefix) {
+		return strings.TrimSpace(strings.TrimPrefix(subject, prefix))
+	}
+	return subject
+}
+
+func mrTitleFor(ticket, explicit string) func(subject string) string {
+	return func(subject string) string {
+		if explicit != "" {
+			return mrTitle(ticket, explicit)
+		}
+		return mrTitle(ticket, stripTicket(ticket, subject))
+	}
+}
+
+func dryRunTitle(ticket, explicit string) string {
+	if explicit != "" {
+		return mrTitle(ticket, explicit)
+	}
+	return "[" + ticket + "] <first commit subject>"
+}
+
 func MR(ctx *app.Context) int {
 	a := ctx.Args
 	out := ctx.Stdout
@@ -156,10 +181,10 @@ func MR(ctx *app.Context) int {
 		output.Die(ctx.Stderr, fmt.Sprintf("branch `%s` does not look like a ticket branch — expected `<project>-<number>-<description>`", feature))
 		return 1
 	}
-	title := mrTitle(ticket, a.Title)
+	titleFor := mrTitleFor(ticket, a.Title)
 
 	if a.DryRun {
-		dryrun.MR(out, a, feature, featureRepos, title)
+		dryrun.MR(out, a, feature, featureRepos, dryRunTitle(ticket, a.Title))
 		return 0
 	}
 
@@ -196,7 +221,7 @@ func MR(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, title)
+			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, titleFor)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
