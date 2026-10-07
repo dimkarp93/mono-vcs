@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,6 +52,29 @@ func runGlab(dir, token string, args ...string) (stdout, stderr string, code int
 		return o.String(), e.String(), ee.ExitCode()
 	}
 	return o.String(), e.String() + err.Error(), -1
+}
+
+func GlabAuthenticated(host string) bool {
+	if host == "" {
+		return false
+	}
+	_, _, rc := runGlab(".", "", "auth", "status", "--hostname", host)
+	return rc == 0
+}
+
+func glabHost(glURL string) string {
+	glURL = strings.TrimSpace(glURL)
+	if u, err := url.Parse(glURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return strings.TrimRight(glURL, "/")
+}
+
+func GlabToken(glURL, token string) string {
+	if token == "" || GlabAuthenticated(glabHost(glURL)) {
+		return ""
+	}
+	return token
 }
 
 func firstNonEmpty(a, b string) string {
