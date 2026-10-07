@@ -698,7 +698,7 @@ func PushMROne(path, branch, mainBranch, token, glabToken string, titleFor func(
 	if title := titleFor(FirstCommitSubject(path, branch, mainBranch)); title != "" {
 		glabArgs = append(glabArgs, "--title", title)
 	}
-	mrOut, mrErrOut, mrRc := runGlab(path, token, glabArgs...)
+	mrOut, mrErrOut, mrRc := runGlab(path, glabToken, glabArgs...)
 	if mrRc != 0 {
 		return Result{path, "failed", firstNonEmpty(mrErrOut, mrOut)}
 	}
