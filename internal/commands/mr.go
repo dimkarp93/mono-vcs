@@ -221,7 +221,7 @@ func MR(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, titleFor)
+			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, a.GLToken, titleFor)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()

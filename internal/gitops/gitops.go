@@ -672,7 +672,7 @@ func FirstCommitSubject(path, branch, mainBranch string) string {
 	return ""
 }
 
-func PushMROne(path, branch, mainBranch, token string, titleFor func(subject string) string) Result {
+func PushMROne(path, branch, mainBranch, token, glabToken string, titleFor func(subject string) string) Result {
 	local := LocalBranchSHA(path, branch)
 	if local == "" {
 		return Result{path, "failed", fmt.Sprintf("no local branch `%s`", branch)}
