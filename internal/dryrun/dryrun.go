@@ -221,6 +221,7 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	fmt.Fprintf(w, "  Условие: если локальная `%s` совпадает с origin/%s — пропустить (up-to-date, push и glab не вызываются).\n", branch, branch)
 	fmt.Fprintln(w, "  Иначе:")
 	fmt.Fprintf(w, "    git -C <repo-name> push -u origin refs/heads/%s:refs/heads/%s\n", branch, branch)
+	fmt.Fprintln(w, "    glab auth status --hostname <gl-url host> — если glab залогинен, он использует свои креды, иначе GITLAB_TOKEN=<token>")
 	fmt.Fprintf(w, "    glab mr create --source-branch %s --target-branch <default-branch> \\\n", branch)
 	fmt.Fprintln(w, "      --remove-source-branch --fill --yes \\")
 	fmt.Fprintf(w, "      --title %s\n", title)

@@ -209,6 +209,7 @@ func MR(ctx *app.Context) int {
 		return 1
 	}
 
+	glabToken := gitops.GlabToken(a.GetGLURL(), a.GLToken)
 	jobs := a.GetJobs()
 	fmt.Fprintf(out, "pushing `%s` and opening merge requests in %d repo(s) (jobs=%d)\n", feature, len(featureRepos), jobs)
 
@@ -221,7 +222,7 @@ func MR(ctx *app.Context) int {
 		go func(p string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, titleFor)
+			results <- gitops.PushMROne(p, feature, scan.mainByPath[p], a.GLToken, glabToken, titleFor)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,6 +52,29 @@ func runGlab(dir, token string, args ...string) (stdout, stderr string, code int
 		return o.String(), e.String(), ee.ExitCode()
 	}
 	return o.String(), e.String() + err.Error(), -1
+}
+
+func GlabAuthenticated(host string) bool {
+	if host == "" {
+		return false
+	}
+	_, _, rc := runGlab(".", "", "auth", "status", "--hostname", host)
+	return rc == 0
+}
+
+func glabHost(glURL string) string {
+	glURL = strings.TrimSpace(glURL)
+	if u, err := url.Parse(glURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return strings.TrimRight(glURL, "/")
+}
+
+func GlabToken(glURL, token string) string {
+	if token == "" || GlabAuthenticated(glabHost(glURL)) {
+		return ""
+	}
+	return token
 }
 
 func firstNonEmpty(a, b string) string {
@@ -648,7 +672,7 @@ func FirstCommitSubject(path, branch, mainBranch string) string {
 	return ""
 }
 
-func PushMROne(path, branch, mainBranch, token string, titleFor func(subject string) string) Result {
+func PushMROne(path, branch, mainBranch, token, glabToken string, titleFor func(subject string) string) Result {
 	local := LocalBranchSHA(path, branch)
 	if local == "" {
 		return Result{path, "failed", fmt.Sprintf("no local branch `%s`", branch)}
@@ -674,7 +698,7 @@ func PushMROne(path, branch, mainBranch, token string, titleFor func(subject str
 	if title := titleFor(FirstCommitSubject(path, branch, mainBranch)); title != "" {
 		glabArgs = append(glabArgs, "--title", title)
 	}
-	mrOut, mrErrOut, mrRc := runGlab(path, token, glabArgs...)
+	mrOut, mrErrOut, mrRc := runGlab(path, glabToken, glabArgs...)
 	if mrRc != 0 {
 		return Result{path, "failed", firstNonEmpty(mrErrOut, mrOut)}
 	}
