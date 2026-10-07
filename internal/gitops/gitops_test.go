@@ -675,3 +675,46 @@ func TestRemotesOnRepoWithoutRemotesIsEmpty(t *testing.T) {
 		t.Fatalf("got %+v", rs)
 	}
 }
+
+func fakeGlabAuth(t *testing.T, authRC string) string {
+	t.Helper()
+	dir := t.TempDir()
+	log := filepath.Join(dir, "glab.log")
+	script := "#!/bin/sh\necho \"$@\" >> " + log + "\nexit " + authRC + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "glab"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return log
+}
+
+func TestGlabTokenDropsTokenWhenGlabIsLoggedIn(t *testing.T) {
+	log := fakeGlabAuth(t, "0")
+	if got := gitops.GlabToken("https://gitlab.internal:8443/", "tok"); got != "" {
+		t.Fatalf("token=%q", got)
+	}
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "auth status --hostname gitlab.internal:8443") {
+		t.Fatalf("glab call: %s", data)
+	}
+}
+
+func TestGlabTokenKeepsTokenWhenGlabIsNotLoggedIn(t *testing.T) {
+	fakeGlabAuth(t, "1")
+	if got := gitops.GlabToken("gitlab.internal", "tok"); got != "tok" {
+		t.Fatalf("token=%q", got)
+	}
+}
+
+func TestGlabTokenEmptyTokenSkipsGlab(t *testing.T) {
+	log := fakeGlabAuth(t, "1")
+	if got := gitops.GlabToken("https://gitlab.internal", ""); got != "" {
+		t.Fatalf("token=%q", got)
+	}
+	if _, err := os.Stat(log); err == nil {
+		t.Fatal("glab was called without a token")
+	}
+}

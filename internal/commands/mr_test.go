@@ -356,3 +356,44 @@ func TestMRTitleDiffersPerRepo(t *testing.T) {
 	contains(t, string(data), "--title [PROJ-1] change in a")
 	contains(t, string(data), "--title [PROJ-1] change in b")
 }
+
+func fakeGlabWithAuth(t *testing.T, authRC int) string {
+	t.Helper()
+	log := filepath.Join(t.TempDir(), "glab.log")
+	writeFakeGlab(t, fmt.Sprintf("#!/bin/sh\nif [ \"$1\" = auth ]; then exit %d; fi\necho \"token=$GITLAB_TOKEN\" >> %s\n", authRC, log))
+	t.Setenv("GITLAB_TOKEN", "")
+	return log
+}
+
+func runMRWithToken(t *testing.T, authRC int) string {
+	t.Helper()
+	ws := t.TempDir()
+	t.Chdir(ws)
+	a := placeLinked(t, ws, "a")
+	onBranch(t, a, "PROJ-1-feat")
+	log := fakeGlabWithAuth(t, authRC)
+
+	args := mrArgs("PROJ-1-feat")
+	args.GLURL = testutil.S("https://gitlab.internal:8443/")
+	args.GLToken = "mono-token"
+	ctx, _, errb := newCtx(t, args, "")
+	if rc := commands.MR(ctx); rc != 0 {
+		t.Fatalf("rc=%d err=%s", rc, errb.String())
+	}
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func TestMRKeepsGlabCredentialsWhenGlabIsLoggedIn(t *testing.T) {
+	call := runMRWithToken(t, 0)
+	contains(t, call, "token=\n")
+	notContains(t, call, "mono-token")
+}
+
+func TestMRPassesTokenToGlabWhenGlabIsNotLoggedIn(t *testing.T) {
+	call := runMRWithToken(t, 1)
+	contains(t, call, "token=mono-token")
+}
