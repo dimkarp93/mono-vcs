@@ -124,13 +124,9 @@ func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 	emit(col1Label, []string{col2Label}, []string{col3Label}, []string{col4Label}, "")
 	fmt.Fprintln(w, sep)
 	for i, r := range rows {
-		var color string
+		color := colors.Blue
 		if len(r.Active) == 0 {
-			color = colors.Blue
-		} else if len(r.Active) == len(r.Repos) {
-			color = colors.Green
-		} else {
-			color = colors.Yellow
+			color = colors.Gray
 		}
 		right := Items(r.Active, col3W)
 		if len(r.Active) == 0 {
