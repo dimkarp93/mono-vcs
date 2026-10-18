@@ -26,7 +26,7 @@ func New(ctx *app.Context) int {
 		return 0
 	}
 	if a.DryRun {
-		dryrun.New(out, a, local)
+		dryrun.New(out, a, local, false)
 		return 0
 	}
 

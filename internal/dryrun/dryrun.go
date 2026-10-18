@@ -138,7 +138,7 @@ func Prune(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "  Иначе: пропустить (нечего отбрасывать); игнорируемые файлы сохраняются")
 }
 
-func New(w io.Writer, a *app.Args, repos []string) {
+func New(w io.Writer, a *app.Args, repos []string, multi bool) {
 	branch := a.Branch
 	header(w, "new "+branch, repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")

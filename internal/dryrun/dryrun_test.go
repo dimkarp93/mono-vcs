@@ -179,7 +179,7 @@ func TestDryDoQuotesMultipleArgs(t *testing.T) {
 func TestDryNewCarriesChangesOver(t *testing.T) {
 	a := ns()
 	a.Branch = "feature"
-	out := render(func(b *bytes.Buffer) { New(b, a, []string{"a"}) })
+	out := render(func(b *bytes.Buffer) { New(b, a, []string{"a"}, false) })
 	expectHeader(t, out, "new feature", 1)
 	mustContain(t, out, "stash push --include-untracked", "stash pop",
 		"checkout -b feature <default-branch>", "checkout feature")
