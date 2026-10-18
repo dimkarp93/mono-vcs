@@ -120,3 +120,18 @@ func New(ctx *app.Context) int {
 	}
 	return 0
 }
+
+type newResult struct {
+	gitops.Result
+	Moved bool
+}
+
+func newBranchOne(p, branch, main string, multi bool) newResult {
+	panic("not implemented")
+}
+func moveIntoWorktree(p, branch string, res gitops.Result) newResult {
+	panic("not implemented")
+}
+func joinDetail(first, second string) string {
+	panic("not implemented")
+}
