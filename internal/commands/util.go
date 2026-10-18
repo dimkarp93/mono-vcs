@@ -80,5 +80,5 @@ func intersect(a, allowed map[string]bool) map[string]bool {
 }
 
 func multiAvailable(ctx *app.Context) bool {
-	panic("not implemented")
+	return ctx.HasMulti != nil && ctx.HasMulti()
 }
