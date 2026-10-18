@@ -67,6 +67,7 @@ type Context struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	TokenFunc func(optional bool) (string, error)
+	HasMulti  func() bool
 }
 
 func (a *Args) ShellAction() string {

@@ -10,6 +10,7 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/commands"
 	"github.com/dimkarp93/mono-vcs/internal/config"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
 	"github.com/dimkarp93/mono-vcs/internal/prompts"
 )
@@ -21,6 +22,7 @@ type Runner struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	TokenFunc func(optional bool) (string, error)
+	HasMulti  func() bool
 	Commands  map[string]Handler
 }
 
@@ -28,6 +30,7 @@ func New(stdin io.Reader, stdout, stderr io.Writer) *Runner {
 	r := &Runner{Stdin: stdin, Stdout: stdout, Stderr: stderr}
 	pr := prompts.New(stdin, stdout, stderr)
 	r.TokenFunc = pr.Token
+	r.HasMulti = gitops.HasMulti
 	r.Commands = DefaultCommands()
 	return r
 }
@@ -140,7 +143,7 @@ func (r *Runner) Run(argv []string) int {
 	}
 
 	h := r.Commands[a.Command]
-	return h(&app.Context{Args: a, Stdin: r.Stdin, Stdout: r.Stdout, Stderr: r.Stderr, TokenFunc: r.TokenFunc})
+	return h(&app.Context{Args: a, Stdin: r.Stdin, Stdout: r.Stdout, Stderr: r.Stderr, TokenFunc: r.TokenFunc, HasMulti: r.HasMulti})
 }
 
 func (r *Runner) parse(argv []string) (*app.Args, error) {
