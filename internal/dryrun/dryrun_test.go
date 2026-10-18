@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/output"
 )
@@ -183,4 +185,18 @@ func TestDryNewCarriesChangesOver(t *testing.T) {
 	expectHeader(t, out, "new feature", 1)
 	mustContain(t, out, "stash push --include-untracked", "stash pop",
 		"checkout -b feature <default-branch>", "checkout feature")
+}
+
+func TestDryNewDescribesGitMultiStep(t *testing.T) {
+	a := ns()
+	a.Branch = "feature"
+	out := render(func(b *bytes.Buffer) { New(b, a, []string{"a"}, true) })
+	mustContain(t, out, "git-multi -C <repo-name> new -y")
+}
+
+func TestDryNewWithoutGitMultiHasNoWorktreeStep(t *testing.T) {
+	a := ns()
+	a.Branch = "feature"
+	out := render(func(b *bytes.Buffer) { New(b, a, []string{"a"}, false) })
+	assert.NotContains(t, out, "git-multi")
 }

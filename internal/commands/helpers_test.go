@@ -65,3 +65,27 @@ func notContains(t *testing.T, out, sub string) {
 		t.Fatalf("did not expect %q in:\n%s", sub, out)
 	}
 }
+
+func withMulti() bool { return true }
+
+func newMultiCtx(t *testing.T, args *app.Args) (*app.Context, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+
+	ctx, out, errb := newCtx(t, args, "")
+	ctx.HasMulti = withMulti
+	return ctx, out, errb
+}
+
+type multiRun struct {
+	rc       int
+	out, err string
+	calls    []string
+}
+
+func multiWorkspace(t *testing.T) (string, string) {
+	t.Helper()
+
+	ws := t.TempDir()
+	t.Chdir(ws)
+	return ws, testutil.FakeMulti(t)
+}
