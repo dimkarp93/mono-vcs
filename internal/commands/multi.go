@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"fmt"
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"io"
+	"sort"
 )
 
 type multiSummary struct {
@@ -37,8 +39,27 @@ func (s *multiSummary) print(ctx *app.Context) {
 	panic("not implemented")
 }
 func singleWorktreeFeature(ctx *app.Context, local []string) (string, []string) {
-	panic("not implemented")
+	reposByFeature := worktreeFeatures(ctx, local)
+	if len(reposByFeature) != 1 {
+		return "", nil
+	}
+	for b, repos := range reposByFeature {
+		sort.Strings(repos)
+		return b, repos
+	}
+	return "", nil
 }
 func worktreeFeatures(ctx *app.Context, local []string) map[string][]string {
-	panic("not implemented")
+	reposByFeature := map[string][]string{}
+	for _, p := range local {
+		worktrees, err := gitops.WorktreeBranches(p)
+		if err != nil {
+			fmt.Fprintf(ctx.Stderr, "warning: %s: failed to list worktrees — %s\n", p, err.Error())
+			continue
+		}
+		for b := range worktrees {
+			reposByFeature[b] = append(reposByFeature[b], p)
+		}
+	}
+	return reposByFeature
 }
