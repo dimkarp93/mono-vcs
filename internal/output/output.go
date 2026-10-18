@@ -24,12 +24,24 @@ func Items(items []string, width int) []string {
 }
 
 type FeatureRow struct {
-	Branch  string
-	Repos   []string
-	Active  []string
-	Remotes []string
+	Branch     string
+	Repos      []string
+	Active     []string
+	Remotes    []string}
+type featureTag struct {
+	text  string
+	color string
 }
 
+func (r FeatureRow) tags() []featureTag {
+	panic("not implemented")
+}
+func (r FeatureRow) label() string {
+	panic("not implemented")
+}
+func (r FeatureRow) colorLabel(shown, branchColor string, useColor bool) string {
+	panic("not implemented")
+}
 func featureColumns(total int, rows []FeatureRow) (int, int, int, int) {
 	const minCell = 8
 	avail := total - 13
