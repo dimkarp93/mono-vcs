@@ -75,6 +75,12 @@ func featureColumns(total int, rows []FeatureRow) (int, int, int, int) {
 	return branchW, col2W, rest - col2W, remoteW
 }
 
+type featuresTable struct {
+	w        io.Writer
+	widths   [4]int
+	useColor bool
+}
+
 func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
 	col1Label, col2Label, col3Label, col4Label := "branch", "repos", "active", "remotes"
 	col1W, col2W, col3W, col4W := featureColumns(Width(w), rows)
