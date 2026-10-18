@@ -2,10 +2,11 @@ package dryrun
 
 import (
 	"fmt"
-	"github.com/dimkarp93/mono-vcs/internal/app"
-	"github.com/dimkarp93/mono-vcs/internal/output"
 	"io"
 	"strings"
+
+	"github.com/dimkarp93/mono-vcs/internal/app"
+	"github.com/dimkarp93/mono-vcs/internal/output"
 )
 
 func PrintTable(w io.Writer, repos []string, maxCols int) {
@@ -35,6 +36,7 @@ func PrintTable(w io.Writer, repos []string, maxCols int) {
 	if cols < 1 {
 		cols = 1
 	}
+
 	bar := strings.Repeat("─", cell+2)
 	bars := make([]string, cols)
 	for i := range bars {
@@ -43,6 +45,7 @@ func PrintTable(w io.Writer, repos []string, maxCols int) {
 	top := "┌" + strings.Join(bars, "┬") + "┐"
 	mid := "├" + strings.Join(bars, "┼") + "┤"
 	bot := "└" + strings.Join(bars, "┴") + "┘"
+
 	var rows [][]string
 	for i := 0; i < len(repos); i += cols {
 		end := i + cols
@@ -55,6 +58,7 @@ func PrintTable(w io.Writer, repos []string, maxCols int) {
 		}
 		rows = append(rows, chunk)
 	}
+
 	fmt.Fprintln(w, top)
 	for i, row := range rows {
 		cells := make([]string, len(row))
@@ -68,11 +72,13 @@ func PrintTable(w io.Writer, repos []string, maxCols int) {
 	}
 	fmt.Fprintln(w, bot)
 }
+
 func header(w io.Writer, label string, repos []string) {
 	fmt.Fprintf(w, "DRY-RUN: %s — будет применено к %d репозитори(й/ев):\n\n", label, len(repos))
 	PrintTable(w, repos, 6)
 	fmt.Fprint(w, "\nПлан действий (для каждого репозитория, <repo-name> — путь к нему):\n\n")
 }
+
 func Pull(w io.Writer, a *app.Args, repos []string) {
 	header(w, "pull", repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
@@ -85,6 +91,7 @@ func Pull(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "      +refs/heads/<default-branch>:refs/remotes/origin/<default-branch>")
 	fmt.Fprintln(w, "  При расхождении локальной <default-branch> с origin — пропустить с ошибкой (diverged).")
 }
+
 func Update(w io.Writer, a *app.Args, repos []string) {
 	header(w, "update", repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
@@ -101,24 +108,28 @@ func Update(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "  Условие: если изменения были спрятаны и rebase прошёл")
 	fmt.Fprintln(w, "    git -C <repo-name> stash pop   # при конфликте стэш остаётся")
 }
+
 func Stash(w io.Writer, a *app.Args, repos []string) {
 	header(w, "stash", repos)
 	fmt.Fprintln(w, "  Условие: если есть unstaged-изменения (git diff --quiet вернул 1)")
 	fmt.Fprintln(w, `    git -C <repo-name> stash push --keep-index --include-untracked -m "mono-vcs stash"`)
 	fmt.Fprintln(w, "  Иначе: пропустить")
 }
+
 func Unstash(w io.Writer, a *app.Args, repos []string) {
 	header(w, "unstash", repos)
 	fmt.Fprintln(w, "  Условие: если стэш не пуст")
 	fmt.Fprintln(w, "    git -C <repo-name> stash pop")
 	fmt.Fprintln(w, "  Иначе: пропустить")
 }
+
 func ClearStash(w io.Writer, a *app.Args, repos []string) {
 	header(w, "clear-stash", repos)
 	fmt.Fprintln(w, "  Условие: если стэш не пуст")
 	fmt.Fprintln(w, "    git -C <repo-name> stash clear")
 	fmt.Fprintln(w, "  Иначе: пропустить")
 }
+
 func Prune(w io.Writer, a *app.Args, repos []string) {
 	header(w, "prune", repos)
 	fmt.Fprintln(w, "  Условие: если есть незакоммиченные изменения (git status --porcelain непуст)")
@@ -126,6 +137,7 @@ func Prune(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "    2. git -C <repo-name> reset --hard HEAD && git -C <repo-name> clean -fd")
 	fmt.Fprintln(w, "  Иначе: пропустить (нечего отбрасывать); игнорируемые файлы сохраняются")
 }
+
 func New(w io.Writer, a *app.Args, repos []string, multi bool) {
 	branch := a.Branch
 	header(w, "new "+branch, repos)
@@ -147,6 +159,7 @@ func New(w io.Writer, a *app.Args, repos []string, multi bool) {
 		fmt.Fprintln(w, "    git-multi -C <repo-name> new -y   # ветка и изменения уходят в worktree, main checkout — на <default-branch>, _ide — на новый workspace")
 	}
 }
+
 func Switch(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
 	label := "<default-branch>"
@@ -163,6 +176,7 @@ func Switch(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "      git -C <repo-name> checkout <default-branch>   # если текущая ветка ≠ <default-branch>")
 	fmt.Fprintln(w, "      git -C <repo-name> pull --ff-only --quiet")
 }
+
 func Finish(w io.Writer, a *app.Args, repos []string) {
 	branch := a.Branch
 	header(w, "finish "+branch, repos)
@@ -178,6 +192,7 @@ func Finish(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "    git -C <repo-name> pull --ff-only --quiet")
 	fmt.Fprintf(w, "    git -C <repo-name> branch -D %s\n", branch)
 }
+
 func Done(w io.Writer, a *app.Args, repos []string) {
 	header(w, "done", repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
@@ -196,11 +211,13 @@ func Done(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "       git -C <repo-name> pull --ff-only --quiet")
 	fmt.Fprintln(w, "     git -C <repo-name> branch -D <B>")
 }
+
 func Do(w io.Writer, a *app.Args, repos []string) {
 	action := a.ShellAction()
 	header(w, "do "+action, repos)
 	fmt.Fprintf(w, "  cd <repo-name> && %s\n", action)
 }
+
 func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	header(w, "mr "+branch, repos)
 	fmt.Fprintf(w, "  Фича — `%s`; ниже перечислены все репозитории, в которых она есть.\n", branch)
@@ -213,6 +230,13 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	fmt.Fprintln(w, "      --remove-source-branch --fill --yes \\")
 	fmt.Fprintf(w, "      --title %s\n", title)
 }
+
 func Multi(w io.Writer, a *app.Args, repos []string) {
-	panic("not implemented")
+	header(w, "multi", repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
+	fmt.Fprintln(w, "  Условие: если main checkout на <default-branch> или в detached HEAD — пропустить (skipped).")
+	fmt.Fprintln(w, "  Иначе:")
+	fmt.Fprintln(w, "    git-multi -C <repo-name> new -y   # текущая ветка и изменения уходят в worktree, main checkout — на <default-branch>")
+	fmt.Fprintln(w, "  После всех репозиториев: если во всём наборе ровно одна фича в worktree —")
+	fmt.Fprintln(w, "    git-multi -C <repo-name> switch _ide <feature> -no-fetch   # в каждом репозитории, где она есть")
 }
