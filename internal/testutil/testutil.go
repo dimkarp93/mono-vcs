@@ -16,6 +16,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/dimkarp93/mono-vcs/internal/state"
 )
 
@@ -267,4 +269,65 @@ func StoredDefaultBranch(t *testing.T, statePath, repo string) string {
 	}
 	b, _ := st.DefaultBranch(repo)
 	return b
+}
+
+const fakeMultiScript = `#!/bin/sh
+dir=.
+if [ "$1" = "-C" ]; then
+	dir=$2
+	shift 2
+fi
+cmd=$1
+shift
+echo "$dir $cmd $*" >> "$GIT_MULTI_LOG"
+if [ "$GIT_MULTI_FAIL" = "$cmd" ]; then
+	echo "fake $cmd failure" >&2
+	exit 1
+fi
+case $cmd in
+new)
+	branch=$(git -C "$dir" symbolic-ref --short HEAD) || exit 1
+	default=$(git -C "$dir" symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##')
+	stashed=
+	if [ -n "$(git -C "$dir" status --porcelain)" ]; then
+		git -C "$dir" stash push -u -q || exit 1
+		stashed=1
+	fi
+	git -C "$dir" checkout -q "$default" || exit 1
+	wt="$GIT_MULTI_ROOT/$(basename "$dir")/$branch"
+	git -C "$dir" worktree add -q "$wt" "$branch" || exit 1
+	if [ -n "$stashed" ]; then
+		git -C "$wt" stash pop -q || exit 1
+	fi
+	;;
+esac
+`
+
+func FakeMulti(t *testing.T) string {
+	t.Helper()
+
+	bin := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "git-multi"), []byte(fakeMultiScript), 0o755))
+	log := filepath.Join(t.TempDir(), "git-multi.log")
+	require.NoError(t, os.WriteFile(log, nil, 0o644))
+
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GIT_MULTI_LOG", log)
+	t.Setenv("GIT_MULTI_ROOT", t.TempDir())
+	return log
+}
+
+func MultiCalls(t *testing.T, log string) []string {
+	t.Helper()
+
+	data, err := os.ReadFile(log)
+	require.NoError(t, err)
+
+	var calls []string
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line != "" {
+			calls = append(calls, line)
+		}
+	}
+	return calls
 }
