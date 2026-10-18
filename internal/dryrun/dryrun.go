@@ -154,6 +154,10 @@ func New(w io.Writer, a *app.Args, repos []string, multi bool) {
 	fmt.Fprintf(w, "      git -C <repo-name> checkout -b %s <default-branch>   # создаётся только локально, без push\n", branch)
 	fmt.Fprintln(w, "    Условие: если изменения стешились")
 	fmt.Fprintln(w, "      git -C <repo-name> stash pop   # при конфликте стеш остаётся, репо попадёт в conflicts")
+	if multi {
+		fmt.Fprintf(w, "  git-multi найден: если `%s` уже в worktree — пропустить (already), иначе после переключения без конфликта:\n", branch)
+		fmt.Fprintln(w, "    git-multi -C <repo-name> new -y   # ветка и изменения уходят в worktree, main checkout — на <default-branch>, _ide — на новый workspace")
+	}
 }
 
 func Switch(w io.Writer, a *app.Args, repos []string) {
@@ -226,3 +230,4 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	fmt.Fprintln(w, "      --remove-source-branch --fill --yes \\")
 	fmt.Fprintf(w, "      --title %s\n", title)
 }
+

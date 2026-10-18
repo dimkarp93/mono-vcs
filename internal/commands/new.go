@@ -25,8 +25,9 @@ func New(ctx *app.Context) int {
 		fmt.Fprintln(out, "no local git repositories found under current directory")
 		return 0
 	}
+	multi := multiAvailable(ctx)
 	if a.DryRun {
-		dryrun.New(out, a, local, false)
+		dryrun.New(out, a, local, multi)
 		return 0
 	}
 
@@ -35,8 +36,11 @@ func New(ctx *app.Context) int {
 	jobs := a.GetJobs()
 	fmt.Fprintf(out, "switching to `%s` (created off the default branch where missing, local changes carried over) in %d repo(s) (jobs=%d)\n",
 		branch, len(local), jobs)
+	if multi {
+		fmt.Fprintln(out, "git-multi found — the branch is moved into its own worktree, the main checkout goes back to the default branch")
+	}
 
-	results := make(chan gitops.Result, len(local))
+	results := make(chan newResult, len(local))
 	sem := make(chan struct{}, jobs)
 	var wg sync.WaitGroup
 	for _, p := range local {
@@ -47,25 +51,28 @@ func New(ctx *app.Context) int {
 			defer func() { <-sem }()
 			main, ok := defs.get(p)
 			if !ok {
-				results <- gitops.Result{Path: p, Status: "unresolved", Detail: unresolvedDefaultBranch}
+				results <- newResult{Result: gitops.Result{Path: p, Status: "unresolved", Detail: unresolvedDefaultBranch}}
 				return
 			}
 			if branch == main {
-				results <- gitops.Result{Path: p, Status: "default"}
+				results <- newResult{Result: gitops.Result{Path: p, Status: "default"}}
 				return
 			}
-			results <- gitops.NewBranchOne(p, branch, main)
+			results <- newBranchOne(p, branch, main, multi)
 		}(p)
 	}
 	go func() { wg.Wait(); close(results) }()
 
-	created, switched, already, absent, isDefault := 0, 0, 0, 0, 0
+	created, switched, already, absent, isDefault, moved := 0, 0, 0, 0, 0, 0
 	var unresolved []string
 	var conflicts [][2]string
 	var failed [][2]string
 	done, total := 0, len(local)
 	for res := range results {
 		done++
+		if res.Moved {
+			moved++
+		}
 		switch res.Status {
 		case "created", "switched":
 			if res.Status == "created" {
@@ -80,7 +87,11 @@ func New(ctx *app.Context) int {
 			fmt.Fprintln(out, line)
 		case "already":
 			already++
-			fmt.Fprintf(out, "[%d/%d] already    %s — already on `%s`\n", done, total, res.Path, branch)
+			line := fmt.Sprintf("[%d/%d] already    %s — already on `%s`", done, total, res.Path, branch)
+			if res.Detail != "" {
+				line += ", " + res.Detail
+			}
+			fmt.Fprintln(out, line)
 		case "absent":
 			absent++
 			fmt.Fprintf(out, "[%d/%d] absent     %s — no local default branch to base on\n", done, total, res.Path)
@@ -100,6 +111,9 @@ func New(ctx *app.Context) int {
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "created: %d, switched: %d, already there: %d, absent: %d, is-default: %d, unresolved: %d, conflicts: %d, failed: %d\n",
 		created, switched, already, absent, isDefault, len(unresolved), len(conflicts), len(failed))
+	if multi {
+		fmt.Fprintf(out, "moved to worktree: %d\n", moved)
+	}
 	reportUnresolved(ctx.Stderr, unresolved)
 	if len(conflicts) > 0 {
 		sort.Slice(conflicts, func(i, j int) bool { return conflicts[i][0] < conflicts[j][0] })
@@ -127,11 +141,39 @@ type newResult struct {
 }
 
 func newBranchOne(p, branch, main string, multi bool) newResult {
-	panic("not implemented")
+	if !multi {
+		return newResult{Result: gitops.NewBranchOne(p, branch, main)}
+	}
+
+	worktrees, err := gitops.WorktreeBranches(p)
+	if err != nil {
+		return newResult{Result: gitops.Result{Path: p, Status: "failed", Detail: err.Error()}}
+	}
+	if dir, ok := worktrees[branch]; ok {
+		return newResult{Result: gitops.Result{Path: p, Status: "already", Detail: "in worktree " + dir}}
+	}
+
+	res := gitops.NewBranchOne(p, branch, main)
+	if res.Status != "created" && res.Status != "switched" && res.Status != "already" {
+		return newResult{Result: res}
+	}
+	return moveIntoWorktree(p, branch, res)
 }
+
 func moveIntoWorktree(p, branch string, res gitops.Result) newResult {
-	panic("not implemented")
+	move := gitops.MultiNewOne(p, branch)
+	if move.Status != "moved" {
+		return newResult{Result: move}
+	}
+
+	res.Detail = joinDetail(res.Detail, "moved to worktree "+move.Detail)
+	return newResult{Result: res, Moved: true}
 }
+
 func joinDetail(first, second string) string {
-	panic("not implemented")
+	if first == "" {
+		return second
+	}
+
+	return first + ", " + second
 }
