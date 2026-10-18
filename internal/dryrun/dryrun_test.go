@@ -200,3 +200,9 @@ func TestDryNewWithoutGitMultiHasNoWorktreeStep(t *testing.T) {
 	out := render(func(b *bytes.Buffer) { New(b, a, []string{"a"}, false) })
 	assert.NotContains(t, out, "git-multi")
 }
+
+func TestDryMultiDescribesMoveAndIDE(t *testing.T) {
+	out := render(func(b *bytes.Buffer) { Multi(b, ns(), []string{"a"}) })
+	expectHeader(t, out, "multi", 1)
+	mustContain(t, out, "git-multi -C <repo-name> new -y", "switch _ide <feature> -no-fetch")
+}
