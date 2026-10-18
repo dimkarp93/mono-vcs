@@ -3,6 +3,9 @@ package commands_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/commands"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
@@ -148,4 +151,76 @@ func TestNewSkipsRepoWithoutResolvableDefault(t *testing.T) {
 	}
 	contains(t, out.String(), "unresolved: 1")
 	contains(t, errb.String(), "the default branch is unknown")
+}
+
+func newWithMulti(t *testing.T, prepare func(p string)) (string, multiRun) {
+	t.Helper()
+
+	ws, log := multiWorkspace(t)
+	p := testutil.MakeClonedRepo(t, ws, "p", "main")
+	prepare(p)
+
+	ctx, out, errb := newMultiCtx(t, newArgs("feat"))
+	rc := commands.New(ctx)
+	return p, multiRun{rc: rc, out: out.String(), err: errb.String(), calls: testutil.MultiCalls(t, log)}
+}
+
+func TestNewMovesBranchIntoWorktreeWithGitMulti(t *testing.T) {
+	p, res := newWithMulti(t, func(p string) { writeFile(p, "README", "dirty") })
+
+	t.Run("exit code", func(t *testing.T) {
+		assert.Equal(t, 0, res.rc, res.out)
+	})
+	for _, want := range []string{"moved to worktree", "moved to worktree: 1"} {
+		t.Run(want, func(t *testing.T) {
+			assert.Contains(t, res.out, want)
+		})
+	}
+	t.Run("main checkout back on main", func(t *testing.T) {
+		assert.Equal(t, "main", gitops.CurrentBranch(p))
+	})
+	t.Run("branch in a worktree", func(t *testing.T) {
+		worktrees, err := gitops.WorktreeBranches(p)
+		require.NoError(t, err)
+		assert.Contains(t, worktrees, "feat")
+	})
+	t.Run("git-multi calls", func(t *testing.T) {
+		assert.Equal(t, []string{"p new -y"}, res.calls)
+	})
+}
+
+func addFeatWorktree(t *testing.T) func(p string) {
+	return func(p string) {
+		testutil.Run(t, p, "git", "branch", "feat")
+		testutil.Run(t, p, "git", "worktree", "add", "-q", t.TempDir()+"/feat", "feat")
+	}
+}
+
+func TestNewSkipsBranchAlreadyInWorktree(t *testing.T) {
+	_, res := newWithMulti(t, addFeatWorktree(t))
+
+	t.Run("exit code", func(t *testing.T) {
+		assert.Equal(t, 0, res.rc, res.out)
+	})
+	t.Run("reported", func(t *testing.T) {
+		assert.Contains(t, res.out, "in worktree")
+	})
+	t.Run("no git-multi calls", func(t *testing.T) {
+		assert.Empty(t, res.calls)
+	})
+}
+
+func TestNewReportsGitMultiFailure(t *testing.T) {
+	t.Setenv("GIT_MULTI_FAIL", "new")
+	p, res := newWithMulti(t, func(string) {})
+
+	t.Run("exit code", func(t *testing.T) {
+		assert.Equal(t, 1, res.rc)
+	})
+	t.Run("reports failure", func(t *testing.T) {
+		assert.Contains(t, res.err, "fake new failure")
+	})
+	t.Run("branch kept in main checkout", func(t *testing.T) {
+		assert.Equal(t, "feat", gitops.CurrentBranch(p))
+	})
 }

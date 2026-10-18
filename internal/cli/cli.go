@@ -10,6 +10,7 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/commands"
 	"github.com/dimkarp93/mono-vcs/internal/config"
+	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
 	"github.com/dimkarp93/mono-vcs/internal/prompts"
 )
@@ -21,6 +22,7 @@ type Runner struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	TokenFunc func(optional bool) (string, error)
+	HasMulti  func() bool
 	Commands  map[string]Handler
 }
 
@@ -28,6 +30,7 @@ func New(stdin io.Reader, stdout, stderr io.Writer) *Runner {
 	r := &Runner{Stdin: stdin, Stdout: stdout, Stderr: stderr}
 	pr := prompts.New(stdin, stdout, stderr)
 	r.TokenFunc = pr.Token
+	r.HasMulti = gitops.HasMulti
 	r.Commands = DefaultCommands()
 	return r
 }
@@ -50,6 +53,7 @@ func DefaultCommands() map[string]Handler {
 		"finish":         commands.Finish,
 		"done":           commands.Done,
 		"new":            commands.New,
+		"multi":          commands.Multi,
 		"mr":             commands.MR,
 		"init":           commands.Init,
 		"alias":          commands.Alias,
@@ -69,9 +73,9 @@ func has(set []string, s string) bool {
 
 var (
 	jobsCommands = []string{"list", "clone", "pull", "update", "stash",
-		"unstash", "switch", "clear-stash", "finish", "done", "new", "prune", "default-branch", "mr"}
+		"unstash", "switch", "clear-stash", "finish", "done", "new", "multi", "prune", "default-branch", "mr"}
 	glURLCommands = []string{"list", "clone", "pull", "update", "switch",
-		"finish", "done", "new", "features", "default-branch", "mr"}
+		"finish", "done", "new", "multi", "features", "default-branch", "mr"}
 )
 
 var positionalArgs = map[string]string{
@@ -140,7 +144,7 @@ func (r *Runner) Run(argv []string) int {
 	}
 
 	h := r.Commands[a.Command]
-	return h(&app.Context{Args: a, Stdin: r.Stdin, Stdout: r.Stdout, Stderr: r.Stderr, TokenFunc: r.TokenFunc})
+	return h(&app.Context{Args: a, Stdin: r.Stdin, Stdout: r.Stdout, Stderr: r.Stderr, TokenFunc: r.TokenFunc, HasMulti: r.HasMulti})
 }
 
 func (r *Runner) parse(argv []string) (*app.Args, error) {
@@ -231,6 +235,10 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		jobs()
 		repo()
 		dryRun()
+	case "multi":
+		jobs()
+		repo()
+		dryRun()
 	case "mr":
 		jobs()
 		dryRun()
@@ -305,7 +313,7 @@ var commandGroups = []commandGroup{
 	{
 		"Feature branches",
 		"create, switch, inspect and drop feature branches across every repo",
-		[]string{"features", "new", "switch", "mr", "done", "finish"},
+		[]string{"features", "new", "multi", "switch", "mr", "done", "finish"},
 	},
 	{
 		"Repositories",
@@ -327,6 +335,7 @@ var commandGroups = []commandGroup{
 var commandSummaries = map[string]string{
 	"features":              "list feature branches across repos",
 	"new":                   "switch every repo to a feature branch, creating it off the default branch and carrying local changes over",
+	"multi":                 "move every active feature branch into its own git-multi worktree",
 	"switch":                "switch every repo to a branch (default branch when omitted)",
 	"mr":                    "push the feature branch everywhere it exists and open merge requests",
 	"finish":                "discard local changes, return to the default branch and delete a feature branch",

@@ -31,6 +31,9 @@ func Features(ctx *app.Context) int {
 	var unresolved []string
 	branchesByName := map[string][]string{}
 	activeByName := map[string]map[string]bool{}
+	multi := multiAvailable(ctx)
+	inWorktree := map[string]bool{}
+	onBranch := map[string]bool{}
 	for _, p := range local {
 		branches, err := gitops.LocalBranches(p)
 		if err != nil {
@@ -42,13 +45,25 @@ func Features(ctx *app.Context) int {
 			unresolved = append(unresolved, p)
 			continue
 		}
+		var worktrees map[string]string
+		if multi {
+			if worktrees, err = gitops.WorktreeBranches(p); err != nil {
+				fmt.Fprintf(ctx.Stderr, "warning: %s: failed to list worktrees — %s\n", p, err.Error())
+			}
+		}
 		cur := gitops.CurrentBranch(p)
 		for _, b := range branches {
 			if b == "" || b == main {
 				continue
 			}
 			branchesByName[b] = append(branchesByName[b], p)
-			if cur == b {
+			_, worktree := worktrees[b]
+			if worktree {
+				inWorktree[b] = true
+			} else {
+				onBranch[b] = true
+			}
+			if cur == b || worktree {
 				if activeByName[b] == nil {
 					activeByName[b] = map[string]bool{}
 				}
@@ -83,7 +98,8 @@ func Features(ctx *app.Context) int {
 			active = append(active, p)
 		}
 		sort.Strings(active)
-		rows = append(rows, output.FeatureRow{Branch: n, Repos: all, Active: active, Remotes: remoteSet.AliasesOf(all)})
+		rows = append(rows, output.FeatureRow{Branch: n, Repos: all, Active: active, Remotes: remoteSet.AliasesOf(all),
+			InWorktree: multi && inWorktree[n], OnBranch: multi && onBranch[n]})
 	}
 	output.PrintFeaturesTable(out, rows, colors.Enabled())
 	fmt.Fprintf(out, "\n%d feature branch(es) across %d repo(s)\n\n", len(rows), len(local))

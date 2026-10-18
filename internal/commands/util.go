@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sort"
 
+	"github.com/dimkarp93/mono-vcs/internal/app"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 )
 
@@ -76,4 +77,8 @@ func intersect(a, allowed map[string]bool) map[string]bool {
 		}
 	}
 	return out
+}
+
+func multiAvailable(ctx *app.Context) bool {
+	return ctx.HasMulti != nil && ctx.HasMulti()
 }

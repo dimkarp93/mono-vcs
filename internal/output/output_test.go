@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/dimkarp93/mono-vcs/internal/colors"
 )
 
 func rowsFixture() []FeatureRow {
@@ -147,5 +151,68 @@ func TestFeaturesTableRowPerRepo(t *testing.T) {
 	}
 	if len(cells) != 3 {
 		t.Fatalf("expected 3 repo lines, got %d:\n%s", len(cells), out)
+	}
+}
+
+func renderFeatures(rows []FeatureRow, useColor bool) string {
+	var b bytes.Buffer
+	PrintFeaturesTable(&b, rows, useColor)
+	return b.String()
+}
+
+func taggedRows() []FeatureRow {
+	return []FeatureRow{
+		{Branch: "wt", Repos: []string{"a"}, Active: []string{"a"}, InWorktree: true},
+		{Branch: "br", Repos: []string{"a"}, OnBranch: true},
+		{Branch: "mixed", Repos: []string{"a", "b"}, InWorktree: true, OnBranch: true},
+		{Branch: "plain", Repos: []string{"a"}},
+	}
+}
+
+func TestFeaturesTableTagsWorktreeAndBranch(t *testing.T) {
+	t.Setenv("COLUMNS", "140")
+	out := renderFeatures(taggedRows(), false)
+
+	for _, want := range []string{"wt [use worktree] ", "br [use branch] ", "mixed [use worktree] [use branch]"} {
+		t.Run(want, func(t *testing.T) {
+			assert.Contains(t, out, want)
+		})
+	}
+	t.Run("plain row has no tag", func(t *testing.T) {
+		for _, l := range strings.Split(out, "\n") {
+			if strings.Contains(l, "plain") {
+				assert.NotContains(t, l, "[use")
+			}
+		}
+	})
+	t.Run("rectangular", func(t *testing.T) {
+		assertRectangular(t, out, 140)
+	})
+}
+
+func TestFeaturesTableColorsTags(t *testing.T) {
+	t.Setenv("COLUMNS", "140")
+	rows := []FeatureRow{{Branch: "mixed", Repos: []string{"a"}, Active: []string{"a"}, InWorktree: true, OnBranch: true}}
+
+	out := renderFeatures(rows, true)
+
+	for _, want := range []string{colors.Green + "[use worktree]" + colors.Reset, colors.Yellow + "[use branch]" + colors.Reset} {
+		t.Run(want, func(t *testing.T) {
+			assert.Contains(t, out, want)
+		})
+	}
+}
+
+func TestFeatureRowLabel(t *testing.T) {
+	cases := map[string]FeatureRow{
+		"plain":                             {Branch: "plain"},
+		"wt [use worktree]":                 {Branch: "wt", InWorktree: true},
+		"br [use branch]":                   {Branch: "br", OnBranch: true},
+		"mixed [use worktree] [use branch]": {Branch: "mixed", InWorktree: true, OnBranch: true},
+	}
+	for want, row := range cases {
+		t.Run(want, func(t *testing.T) {
+			assert.Equal(t, want, row.label())
+		})
 	}
 }

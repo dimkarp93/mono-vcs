@@ -138,7 +138,7 @@ func Prune(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintln(w, "  Иначе: пропустить (нечего отбрасывать); игнорируемые файлы сохраняются")
 }
 
-func New(w io.Writer, a *app.Args, repos []string) {
+func New(w io.Writer, a *app.Args, repos []string, multi bool) {
 	branch := a.Branch
 	header(w, "new "+branch, repos)
 	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
@@ -154,6 +154,10 @@ func New(w io.Writer, a *app.Args, repos []string) {
 	fmt.Fprintf(w, "      git -C <repo-name> checkout -b %s <default-branch>   # создаётся только локально, без push\n", branch)
 	fmt.Fprintln(w, "    Условие: если изменения стешились")
 	fmt.Fprintln(w, "      git -C <repo-name> stash pop   # при конфликте стеш остаётся, репо попадёт в conflicts")
+	if multi {
+		fmt.Fprintf(w, "  git-multi найден: если `%s` уже в worktree — пропустить (already), иначе после переключения без конфликта:\n", branch)
+		fmt.Fprintln(w, "    git-multi -C <repo-name> new -y   # ветка и изменения уходят в worktree, main checkout — на <default-branch>, _ide — на новый workspace")
+	}
 }
 
 func Switch(w io.Writer, a *app.Args, repos []string) {
@@ -225,4 +229,14 @@ func MR(w io.Writer, a *app.Args, branch string, repos []string, title string) {
 	fmt.Fprintf(w, "    glab mr create --source-branch %s --target-branch <default-branch> \\\n", branch)
 	fmt.Fprintln(w, "      --remove-source-branch --fill --yes \\")
 	fmt.Fprintf(w, "      --title %s\n", title)
+}
+
+func Multi(w io.Writer, a *app.Args, repos []string) {
+	header(w, "multi", repos)
+	fmt.Fprintln(w, "  <default-branch> — дефолтная ветка репозитория (из state db, наполняется из GitLab)")
+	fmt.Fprintln(w, "  Условие: если main checkout на <default-branch> или в detached HEAD — пропустить (skipped).")
+	fmt.Fprintln(w, "  Иначе:")
+	fmt.Fprintln(w, "    git-multi -C <repo-name> new -y   # текущая ветка и изменения уходят в worktree, main checkout — на <default-branch>")
+	fmt.Fprintln(w, "  После всех репозиториев: если во всём наборе ровно одна фича в worktree —")
+	fmt.Fprintln(w, "    git-multi -C <repo-name> switch _ide <feature> -no-fetch   # в каждом репозитории, где она есть")
 }
