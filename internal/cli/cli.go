@@ -53,6 +53,7 @@ func DefaultCommands() map[string]Handler {
 		"finish":         commands.Finish,
 		"done":           commands.Done,
 		"new":            commands.New,
+		"multi":          commands.Multi,
 		"mr":             commands.MR,
 		"init":           commands.Init,
 		"alias":          commands.Alias,
@@ -72,9 +73,9 @@ func has(set []string, s string) bool {
 
 var (
 	jobsCommands = []string{"list", "clone", "pull", "update", "stash",
-		"unstash", "switch", "clear-stash", "finish", "done", "new", "prune", "default-branch", "mr"}
+		"unstash", "switch", "clear-stash", "finish", "done", "new", "multi", "prune", "default-branch", "mr"}
 	glURLCommands = []string{"list", "clone", "pull", "update", "switch",
-		"finish", "done", "new", "features", "default-branch", "mr"}
+		"finish", "done", "new", "multi", "features", "default-branch", "mr"}
 )
 
 var positionalArgs = map[string]string{
@@ -234,6 +235,10 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		jobs()
 		repo()
 		dryRun()
+	case "multi":
+		jobs()
+		repo()
+		dryRun()
 	case "mr":
 		jobs()
 		dryRun()
@@ -308,7 +313,7 @@ var commandGroups = []commandGroup{
 	{
 		"Feature branches",
 		"create, switch, inspect and drop feature branches across every repo",
-		[]string{"features", "new", "switch", "mr", "done", "finish"},
+		[]string{"features", "new", "multi", "switch", "mr", "done", "finish"},
 	},
 	{
 		"Repositories",
@@ -330,6 +335,7 @@ var commandGroups = []commandGroup{
 var commandSummaries = map[string]string{
 	"features":              "list feature branches across repos",
 	"new":                   "switch every repo to a feature branch, creating it off the default branch and carrying local changes over",
+	"multi":                 "move every active feature branch into its own git-multi worktree",
 	"switch":                "switch every repo to a branch (default branch when omitted)",
 	"mr":                    "push the feature branch everywhere it exists and open merge requests",
 	"finish":                "discard local changes, return to the default branch and delete a feature branch",

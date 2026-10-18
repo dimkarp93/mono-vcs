@@ -50,6 +50,7 @@ var completionSpec = shellcomplete.Spec{
 		{Name: "finish", Flags: flagsFor(append([]shellcomplete.Flag{jobsFlag, dryRunFlag}, repoFlags...)...), Args: shellcomplete.Anything, Intermixed: true},
 		{Name: "done", Flags: flagsFor(jobsFlag, dryRunFlag)},
 		{Name: "new", Flags: flagsFor(append([]shellcomplete.Flag{jobsFlag, dryRunFlag}, repoFlags...)...), Args: shellcomplete.Anything, Intermixed: true},
+		{Name: "multi", Flags: flagsFor(append([]shellcomplete.Flag{jobsFlag, dryRunFlag}, repoFlags...)...)},
 		{Name: "mr", Flags: flagsFor(jobsFlag, dryRunFlag, shellcomplete.Flag{Name: "-title"}), Args: shellcomplete.Anything, Intermixed: true},
 		{Name: "init"},
 		{Name: "alias", Flags: flagsFor(

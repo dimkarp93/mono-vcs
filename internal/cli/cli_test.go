@@ -51,7 +51,7 @@ func TestSubcommandsRegistered(t *testing.T) {
 		"default-branch": true,
 		"stash":          true, "unstash": true, "clear-stash": true, "history-stash": true,
 		"prune": true, "features": true, "do": true, "switch": true,
-		"finish": true, "done": true, "new": true, "mr": true, "init": true, "alias": true,
+		"finish": true, "done": true, "new": true, "multi": true, "mr": true, "init": true, "alias": true,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
