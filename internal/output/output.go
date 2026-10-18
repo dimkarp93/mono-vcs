@@ -24,30 +24,56 @@ func Items(items []string, width int) []string {
 }
 
 type FeatureRow struct {
-	Branch     string
-	Repos      []string
-	Active     []string
-	Remotes    []string}
+	Branch  string
+	Repos   []string
+	Active  []string
+	Remotes []string
+
+	InWorktree bool
+	OnBranch   bool
+}
+
 type featureTag struct {
 	text  string
 	color string
 }
 
 func (r FeatureRow) tags() []featureTag {
-	panic("not implemented")
+	var tags []featureTag
+	if r.InWorktree {
+		tags = append(tags, featureTag{"[use worktree]", colors.Green})
+	}
+	if r.OnBranch {
+		tags = append(tags, featureTag{"[use branch]", colors.Yellow})
+	}
+	return tags
 }
+
 func (r FeatureRow) label() string {
-	panic("not implemented")
+	label := r.Branch
+	for _, t := range r.tags() {
+		label += " " + t.text
+	}
+	return label
 }
+
 func (r FeatureRow) colorLabel(shown, branchColor string, useColor bool) string {
-	panic("not implemented")
+	if shown != r.label() {
+		return colors.Colorize(shown, branchColor, useColor)
+	}
+	label := colors.Colorize(r.Branch, branchColor, useColor)
+	for _, t := range r.tags() {
+		label += " " + colors.Colorize(t.text, t.color, useColor)
+	}
+	return label
 }
+
 func featureColumns(total int, rows []FeatureRow) (int, int, int, int) {
 	const minCell = 8
 	avail := total - 13
 	branchW := DisplayWidth("branch")
 	for _, r := range rows {
-		if l := DisplayWidth(r.Branch); l > branchW {
+		if l := DisplayWidth(r.label()); l > branchW {
 			branchW = l
 		}
 	}
@@ -129,7 +155,7 @@ func (t featuresTable) emitRow(r FeatureRow) {
 		orDash(Items(r.Active, t.widths[2]), len(r.Active)),
 		orDash(Items(r.Remotes, t.widths[3]), len(r.Remotes)),
 	}
-	t.emit(r.Branch, cols, func(shown string) string { return colors.Colorize(shown, color, t.useColor) })
+	t.emit(r.label(), cols, func(shown string) string { return r.colorLabel(shown, color, t.useColor) })
 }
 
 func rowColor(r FeatureRow) string {
