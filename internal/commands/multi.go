@@ -6,6 +6,7 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"io"
 	"sort"
+	"sync"
 )
 
 type multiSummary struct {
@@ -21,13 +22,41 @@ func multiTargets(ctx *app.Context) ([]string, int, bool) {
 	panic("not implemented")
 }
 func moveAll(local []string, defs defaultBranches, jobs int) <-chan gitops.Result {
-	panic("not implemented")
+	results := make(chan gitops.Result, len(local))
+	sem := make(chan struct{}, jobs)
+	var wg sync.WaitGroup
+	for _, p := range local {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(p string) {
+			defer wg.Done()
+			defer release(sem)
+			results <- moveActive(p, defs)
+		}(p)
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+	return results
 }
 func release(sem chan struct{}) {
-	panic("not implemented")
+	<-sem
 }
 func moveActive(p string, defs defaultBranches) gitops.Result {
-	panic("not implemented")
+	main, ok := defs.get(p)
+	if !ok {
+		return gitops.Result{Path: p, Status: "unresolved", Detail: unresolvedDefaultBranch}
+	}
+	cur := gitops.CurrentBranch(p)
+	if cur == "" || cur == main {
+		return gitops.Result{Path: p, Status: "skipped"}
+	}
+	res := gitops.MultiNewOne(p, cur)
+	if res.Status == "moved" {
+		res.Detail = "`" + cur + "` -> " + res.Detail
+	}
+	return res
 }
 func (s *multiSummary) collect(out io.Writer, results <-chan gitops.Result, total int) {
 	panic("not implemented")
