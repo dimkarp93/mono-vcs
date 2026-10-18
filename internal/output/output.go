@@ -82,70 +82,84 @@ type featuresTable struct {
 }
 
 func PrintFeaturesTable(w io.Writer, rows []FeatureRow, useColor bool) {
-	col1Label, col2Label, col3Label, col4Label := "branch", "repos", "active", "remotes"
-	col1W, col2W, col3W, col4W := featureColumns(Width(w), rows)
-
-	bar1 := strings.Repeat("─", col1W+2)
-	bar2 := strings.Repeat("─", col2W+2)
-	bar3 := strings.Repeat("─", col3W+2)
-	bar4 := strings.Repeat("─", col4W+2)
-	top := "┌" + bar1 + "┬" + bar2 + "┬" + bar3 + "┬" + bar4 + "┐"
-	sep := "├" + bar1 + "┼" + bar2 + "┼" + bar3 + "┼" + bar4 + "┤"
-	bot := "└" + bar1 + "┴" + bar2 + "┴" + bar3 + "┴" + bar4 + "┘"
-
-	emit := func(left string, midLines, rightLines, remoteLines []string, leftColor string) {
-		n := len(midLines)
-		if len(rightLines) > n {
-			n = len(rightLines)
-		}
-		if len(remoteLines) > n {
-			n = len(remoteLines)
-		}
-		if n < 1 {
-			n = 1
-		}
-		for len(midLines) < n {
-			midLines = append(midLines, "")
-		}
-		for len(rightLines) < n {
-			rightLines = append(rightLines, "")
-		}
-		for len(remoteLines) < n {
-			remoteLines = append(remoteLines, "")
-		}
-		for i := 0; i < n; i++ {
-			lRaw := ""
-			if i == 0 {
-				lRaw = Truncate(left, col1W)
-			}
-			lPadded := Pad(lRaw, col1W)
-			if leftColor != "" && lRaw != "" {
-				lPadded = PadColored(lRaw, colors.Colorize(lRaw, leftColor, useColor), col1W)
-			}
-			fmt.Fprintf(w, "│ %s │ %s │ %s │ %s │\n", lPadded, Cell(midLines[i], col2W), Cell(rightLines[i], col3W), Cell(remoteLines[i], col4W))
-		}
-	}
+	t := featuresTable{w: w, useColor: useColor}
+	t.widths[0], t.widths[1], t.widths[2], t.widths[3] = featureColumns(Width(w), rows)
+	top, sep, bot := t.rules()
 
 	fmt.Fprintln(w, top)
-	emit(col1Label, []string{col2Label}, []string{col3Label}, []string{col4Label}, "")
+	t.emit("branch", [3][]string{{"repos"}, {"active"}, {"remotes"}}, nil)
 	fmt.Fprintln(w, sep)
 	for i, r := range rows {
-		color := colors.Blue
-		if len(r.Active) == 0 {
-			color = colors.Gray
-		}
-		right := Items(r.Active, col3W)
-		if len(r.Active) == 0 {
-			right = []string{"—"}
-		}
-		rem := Items(r.Remotes, col4W)
-		if len(r.Remotes) == 0 {
-			rem = []string{"—"}
-		}
-		emit(r.Branch, Items(r.Repos, col2W), right, rem, color)
+		t.emitRow(r)
 		if i < len(rows)-1 {
 			fmt.Fprintln(w, sep)
 		}
 	}
 	fmt.Fprintln(w, bot)
+}
+
+func (t featuresTable) rules() (string, string, string) {
+	var bars [4]string
+	for i, width := range t.widths {
+		bars[i] = strings.Repeat("─", width+2)
+	}
+
+	top := "┌" + strings.Join(bars[:], "┬") + "┐"
+	sep := "├" + strings.Join(bars[:], "┼") + "┤"
+	bot := "└" + strings.Join(bars[:], "┴") + "┘"
+	return top, sep, bot
+}
+
+func (t featuresTable) emitRow(r FeatureRow) {
+	color := rowColor(r)
+	cols := [3][]string{
+		Items(r.Repos, t.widths[1]),
+		orDash(Items(r.Active, t.widths[2]), len(r.Active)),
+		orDash(Items(r.Remotes, t.widths[3]), len(r.Remotes)),
+	}
+	t.emit(r.Branch, cols, func(shown string) string { return colors.Colorize(shown, color, t.useColor) })
+}
+
+func rowColor(r FeatureRow) string {
+	if len(r.Active) == 0 {
+		return colors.Gray
+	}
+
+	return colors.Blue
+}
+
+func orDash(lines []string, n int) []string {
+	if n == 0 {
+		return []string{"—"}
+	}
+
+	return lines
+}
+
+func (t featuresTable) emit(left string, cols [3][]string, colorLeft func(string) string) {
+	n := max(len(cols[0]), len(cols[1]), len(cols[2]), 1)
+	for i := range n {
+		fmt.Fprintf(t.w, "│ %s │ %s │ %s │ %s │\n", t.leftCell(i, left, colorLeft),
+			Cell(lineAt(cols[0], i), t.widths[1]), Cell(lineAt(cols[1], i), t.widths[2]), Cell(lineAt(cols[2], i), t.widths[3]))
+	}
+}
+
+func (t featuresTable) leftCell(i int, left string, colorLeft func(string) string) string {
+	if i != 0 {
+		return Pad("", t.widths[0])
+	}
+
+	shown := Truncate(left, t.widths[0])
+	if colorLeft != nil && shown != "" {
+		return PadColored(shown, colorLeft(shown), t.widths[0])
+	}
+	return Pad(shown, t.widths[0])
+}
+
+func lineAt(lines []string, i int) string {
+	if i < len(lines) {
+		return lines[i]
+	}
+
+	return ""
 }
