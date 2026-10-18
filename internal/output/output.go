@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dimkarp93/mono-vcs/internal/colors"
+	"github.com/dimkarp93/utils/pkg/collections"
 )
 
 func Die(stderr io.Writer, msg string) {
@@ -152,8 +153,8 @@ func (t featuresTable) emitRow(r FeatureRow) {
 	color := rowColor(r)
 	cols := [3][]string{
 		Items(r.Repos, t.widths[1]),
-		orDash(Items(r.Active, t.widths[2]), len(r.Active)),
-		orDash(Items(r.Remotes, t.widths[3]), len(r.Remotes)),
+		Items(collections.OrDefault(r.Active, []string{"—"}), t.widths[2]),
+		Items(collections.OrDefault(r.Remotes, []string{"—"}), t.widths[3]),
 	}
 	t.emit(r.label(), cols, func(shown string) string { return r.colorLabel(shown, color, t.useColor) })
 }
@@ -166,19 +167,11 @@ func rowColor(r FeatureRow) string {
 	return colors.Blue
 }
 
-func orDash(lines []string, n int) []string {
-	if n == 0 {
-		return []string{"—"}
-	}
-
-	return lines
-}
-
 func (t featuresTable) emit(left string, cols [3][]string, colorLeft func(string) string) {
 	n := max(len(cols[0]), len(cols[1]), len(cols[2]), 1)
 	for i := range n {
 		fmt.Fprintf(t.w, "│ %s │ %s │ %s │ %s │\n", t.leftCell(i, left, colorLeft),
-			Cell(lineAt(cols[0], i), t.widths[1]), Cell(lineAt(cols[1], i), t.widths[2]), Cell(lineAt(cols[2], i), t.widths[3]))
+			Cell(collections.At(cols[0], i), t.widths[1]), Cell(collections.At(cols[1], i), t.widths[2]), Cell(collections.At(cols[2], i), t.widths[3]))
 	}
 }
 
@@ -192,12 +185,4 @@ func (t featuresTable) leftCell(i int, left string, colorLeft func(string) strin
 		return PadColored(shown, colorLeft(shown), t.widths[0])
 	}
 	return Pad(shown, t.widths[0])
-}
-
-func lineAt(lines []string, i int) string {
-	if i < len(lines) {
-		return lines[i]
-	}
-
-	return ""
 }
