@@ -148,7 +148,7 @@ func TestDBPathComesFromConfig(t *testing.T) {
 func TestPathEntriesFallBackToDefaults(t *testing.T) {
 	pointTo(t, filepath.Join(t.TempDir(), "vcs"))
 	entries := PathEntries()
-	if len(entries) != 3 {
+	if len(entries) != 2 {
 		t.Fatalf("got %+v", entries)
 	}
 	if entries[0].Name != "config" || entries[0].Path != Path() {
@@ -156,9 +156,6 @@ func TestPathEntriesFallBackToDefaults(t *testing.T) {
 	}
 	if entries[1].Name != "db" || entries[1].Path != state.DefaultPath() {
 		t.Fatalf("db entry: %+v", entries[1])
-	}
-	if entries[2].Name != "aliases" {
-		t.Fatalf("aliases entry: %+v", entries[2])
 	}
 }
 

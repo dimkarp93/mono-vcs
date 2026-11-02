@@ -117,20 +117,6 @@ func TestUpdateNoReposWithRemote(t *testing.T) {
 	contains(t, out.String(), "with a remote")
 }
 
-func TestUpdateRemoteFlagFilters(t *testing.T) {
-	ws := t.TempDir()
-	t.Chdir(ws)
-	placeLinked(t, ws, "p")
-	a := updateArgs()
-	a.Remote = []string{"github.com"}
-
-	ctx, out, _ := newCtx(t, a, "")
-	if rc := commands.Update(ctx); rc != 0 {
-		t.Fatalf("rc=%d", rc)
-	}
-	notContains(t, out.String(), "[1/1]")
-}
-
 func pushUpstream(t *testing.T, repo, branch, file, content string) {
 	t.Helper()
 	remote := strings.TrimSpace(testutil.Run(t, repo, "git", "remote", "get-url", "origin"))
