@@ -77,14 +77,9 @@ git commit -am "release X.Y.Z" && git push   # мерж в main запускае
 {
   "gl-url": "https://gitlab.company.com",
   "jobs": 4,
-  "db-path": "/home/user/.local/mono-vcs/state.json",
-  "aliases-path": "/home/user/.local/mono-vcs/aliases.json"
+  "db-path": "/home/user/.local/mono-vcs/state.json"
 }
 ```
-
-`aliases-path` — файл с пользовательскими алиасами (`mono-vcs alias`). По
-умолчанию `~/.local/mono-vcs/aliases.json`; как и `db-path`, ключ нужен, только
-чтобы положить файл в другое место.
 
 `db-path` — файл состояния, в котором mono-vcs хранит дефолтную ветку каждого
 локального репозитория. По умолчанию `~/.local/mono-vcs/state.json`; ключ в
@@ -264,8 +259,7 @@ glab mr create --source-branch <branch> --target-branch <default-branch> \
 
 `update` — **переложить свою работу на свежую дефолтную ветку**: `checkout`
 дефолтной, `pull --ff-only`, возврат на исходную ветку и `rebase` на дефолтную.
-Работает только с репозиториями, у которых есть git remote; список можно сузить
-флагом `-remote`. Незакоммиченные изменения перед началом прячутся в
+Работает только с репозиториями, у которых есть git remote. Незакоммиченные изменения перед началом прячутся в
 `git stash push --include-untracked -m "mono-vcs update <ветка>"` и после ребейза
 возвращаются через `git stash pop`.
 
@@ -344,9 +338,6 @@ mono-vcs do git commit -m "два слова"           # кавычки сох�
 mono-vcs do "git fetch && git status -s"        # один аргумент — это шелл-строка целиком
 mono-vcs done                                   # убрать локальные ветки влитых фич
 mono-vcs finish MVPAY-290                       # выбросить фичу и вернуться на дефолтную
-mono-vcs alias ls                               # какие есть алиасы remote'ов
-mono-vcs alias remote work gitlab.mycompany     # завести кастомный алиас
-mono-vcs do -remote work git status -s          # только репо с этого хостинга
 ```
 
 Про кавычки в `do`: если после `do` идёт несколько аргументов, они трактуются как готовый argv —
@@ -355,10 +346,9 @@ mono-vcs do -remote work git status -s          # только репо с эт�
 
 Те же сценарии через Makefile: `make run ARGS='list --all'` и т.д.
 
-### Выбор репозиториев: `-repo`, `-feat` и `-remote`
+### Выбор репозиториев: `-repo` и `-feat`
 
-Любая команда, принимающая `-repo`, также принимает `-feat | -f <feat-name>`
-и `-remote`:
+Любая команда, принимающая `-repo`, также принимает `-feat | -f <feat-name>`:
 
 - `-repo` — ограничить по имени/папке/пути (повторяемый, через запятую):
   - `api` — по имени папки репозитория на любом уровне;
@@ -370,62 +360,8 @@ mono-vcs do -remote work git status -s          # только репо с эт�
   таким именем (та же трактовка «фичи», что и у `mono-vcs features`), независимо
   от того, переключён ли на неё репозиторий.
 
-- `-remote` — ограничить репозиториями с подходящим git-remote (повторяемый,
-  через запятую). Значением может быть полный URL remote'а
-  (`git@github.com:grp/web.git`), хост (`github.com`), системный алиас
-  (`github`) или кастомный алиас (см. `mono-vcs alias`). Репозиторий подходит,
-  если совпал **любой** из его remote'ов, а не только `origin`.
-
 `-repo` и `-feat` **взаимоисключающи** — передавать оба сразу нельзя (ошибка).
-`-remote` — независимое измерение и комбинируется с любым из них по «И»:
-`mono-vcs do -repo api -remote github git status -s` возьмёт только те репо, что
-попали и в `-repo`, и в `-remote`. Если не указано ничего, команда работает по
-всем репозиториям, как и раньше.
-
-`done` и `mr` по-прежнему не принимают никаких фильтров, включая `-remote`: они
-намеренно работают по всем репозиториям сразу.
-
-### Remote'ы и алиасы
-
-`list` и `features` показывают, с какого хостинга приехал каждый репозиторий:
-отдельной колонкой с коротким алиасом и блоком `remotes:` под выводом, где у
-каждого алиаса видны хост и пример URL.
-
-**Системный алиас** выводится из домена: от хоста отбрасывается последний
-сегмент — `github.com` → `github`, `gitlab.com` → `gitlab`,
-`gitlab.mycompany.com` → `gitlab.mycompany`. Если два хоста воркспейса дали
-одинаковый алиас (`gitlab.com` и `gitlab.org`), оба берут полный хост.
-IP-адреса и односегментные хосты (`localhost`) используются целиком.
-
-**Кастомные алиасы** заводит команда `alias`:
-
-```bash
-mono-vcs alias ls                       # все алиасы всех видов
-mono-vcs alias ls remote                # только remote
-mono-vcs alias remote work gitlab.mycompany       # синоним системного алиаса
-mono-vcs alias remote api https://gitlab.mycompany.com/grp/api.git  # конкретный репо
-mono-vcs alias remote -d work           # удалить
-```
-
-Вторым аргументом можно передать полный URL, хост, системный или уже
-существующий кастомный алиас — сохраняется всегда **полное нормализованное
-значение** (`gitlab.mycompany.com` или `gitlab.mycompany.com/grp/api`), а не сам
-алиас. Имя алиаса не должно совпадать с системным и не может содержать пробелов,
-запятых, `/` и `:`.
-
-Файл — `~/.local/mono-vcs/aliases.json` (меняется ключом `aliases-path` в
-конфиге):
-
-```json
-{
-  "remotes": {
-    "work": "gitlab.mycompany.com"
-  }
-}
-```
-
-Формат рассчитан на другие виды алиасов в будущем — `alias` принимает вид первым
-аргументом (`alias remote ...`), и сейчас поддержан только `remote`.
+Если не указано ничего, команда работает по всем репозиториям.
 
 ## Тесты
 
@@ -448,9 +384,7 @@ internal/
 ├── output/     печать ошибок, таблица features
 ├── prompts/    интерактивные промпты (токен, ввод значений)
 ├── repos/      поиск локальных репо, --repo фильтр
-├── remotes/    сбор git-remote'ов, нормализация URL, системные алиасы
-├── aliases/    кастомные алиасы (JSON, ~/.local/mono-vcs/aliases.json)
-├── selector/   общий отбор репозиториев по -repo/-feat/-remote
+├── selector/   общий отбор репозиториев по -repo/-feat
 ├── gitlab/     REST-клиент GitLab
 ├── gitops/     обёртки над git + per-repo воркеры
 ├── jobs/       параллельный per-repo раннер

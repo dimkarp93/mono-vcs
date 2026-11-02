@@ -8,18 +8,15 @@ import (
 type Args struct {
 	Command string
 
-	GLURL       *string
-	Jobs        *int
-	DBPath      *string
-	AliasesPath *string
+	GLURL  *string
+	Jobs   *int
+	DBPath *string
 
 	GLToken string
 
 	Repo    []string
-	Remote  []string
 	Feature string
 	DryRun  bool
-	Delete  bool
 	Branch  string
 	Action  []string
 	Title   string
@@ -45,13 +42,6 @@ func (a *Args) GetDBPath() string {
 		return ""
 	}
 	return *a.DBPath
-}
-
-func (a *Args) GetAliasesPath() string {
-	if a.AliasesPath == nil {
-		return ""
-	}
-	return *a.AliasesPath
 }
 
 func (a *Args) GetJobs() int {

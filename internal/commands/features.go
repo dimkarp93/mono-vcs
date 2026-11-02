@@ -8,8 +8,6 @@ import (
 	"github.com/dimkarp93/mono-vcs/internal/colors"
 	"github.com/dimkarp93/mono-vcs/internal/gitops"
 	"github.com/dimkarp93/mono-vcs/internal/output"
-	"github.com/dimkarp93/mono-vcs/internal/remotes"
-	"github.com/dimkarp93/mono-vcs/internal/selector"
 )
 
 func Features(ctx *app.Context) int {
@@ -25,8 +23,6 @@ func Features(ctx *app.Context) int {
 	}
 
 	defs := resolveDefaults(ctx, local, nil)
-	remoteSet := remotes.New(local, ctx.Args.GetJobs(), ctx.Stderr)
-	custom := selector.CustomAliases(ctx)
 
 	var unresolved []string
 	branchesByName := map[string][]string{}
@@ -59,8 +55,6 @@ func Features(ctx *app.Context) int {
 
 	if len(branchesByName) == 0 {
 		fmt.Fprintln(out, "no feature branches found (every local repo only has its default branch)")
-		fmt.Fprintln(out)
-		output.PrintRemotesLegend(out, legendRows(remoteSet.Subset(local), custom), colors.Enabled())
 		reportUnresolved(ctx.Stderr, unresolved)
 		if len(unresolved) > 0 {
 			return 1
@@ -83,7 +77,7 @@ func Features(ctx *app.Context) int {
 			active = append(active, p)
 		}
 		sort.Strings(active)
-		rows = append(rows, output.FeatureRow{Branch: n, Repos: all, Active: active, Remotes: remoteSet.AliasesOf(all)})
+		rows = append(rows, output.FeatureRow{Branch: n, Repos: all, Active: active})
 	}
 	output.PrintFeaturesTable(out, rows, colors.Enabled())
 	fmt.Fprintf(out, "\n%d feature branch(es) across %d repo(s)\n\n", len(rows), len(local))
@@ -94,7 +88,6 @@ func Features(ctx *app.Context) int {
 		}
 		fmt.Fprintln(out)
 	}
-	output.PrintRemotesLegend(out, legendRows(remoteSet.Subset(local), custom), colors.Enabled())
 	if len(unresolved) > 0 {
 		reportUnresolved(ctx.Stderr, unresolved)
 		return 1

@@ -52,7 +52,6 @@ func DefaultCommands() map[string]Handler {
 		"new":            commands.New,
 		"mr":             commands.MR,
 		"init":           commands.Init,
-		"alias":          commands.Alias,
 	}
 }
 
@@ -80,7 +79,6 @@ var positionalArgs = map[string]string{
 	"finish": "<branch>",
 	"mr":     "[branch]",
 	"do":     "<command>...",
-	"alias":  "<kind> [name] [target] | ls [kind]",
 }
 
 func (r *Runner) Run(argv []string) int {
@@ -173,7 +171,6 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		fs.Var(&repoFlag{&a.Repo}, "repo", "restrict to these repos (repeatable; comma-separated; bare name matches by repo name, trailing / matches a folder, a path like group/repo matches that exact path)")
 		fs.StringVar(&a.Feature, "feat", "", "restrict to repos that have a local branch with this name (mutually exclusive with -repo)")
 		fs.StringVar(&a.Feature, "f", "", "shorthand for -feat")
-		fs.Var(&repoFlag{&a.Remote}, "remote", "restrict to repos with a matching git remote (repeatable; comma-separated; full remote URL, host, system alias or custom alias)")
 	}
 	dryRun := func() { fs.BoolVar(&a.DryRun, "dry-run", false, "print the git commands that would run") }
 
@@ -235,20 +232,10 @@ func (r *Runner) parse(argv []string) (*app.Args, error) {
 		jobs()
 		dryRun()
 		fs.StringVar(&a.Title, "title", "", "merge request title (passed to `glab mr create --title`)")
-	case "alias":
-		fs.BoolVar(&a.Delete, "delete", false, "delete the named alias")
-		fs.BoolVar(&a.Delete, "d", false, "shorthand for -delete")
 	case "init":
 	}
 
 	switch cmd {
-	case "alias":
-
-		pos, err := parseIntermixed(fs, argv[1:])
-		if err != nil {
-			return nil, err
-		}
-		a.Action = pos
 	case "switch", "finish", "new", "mr":
 
 		pos, err := parseIntermixed(fs, argv[1:])
@@ -320,7 +307,7 @@ var commandGroups = []commandGroup{
 	{
 		"Utility",
 		"configure mono-vcs and show help",
-		[]string{"init", "alias", "help", "completion", "install-completions", "uninstall-completions"},
+		[]string{"init", "help", "completion", "install-completions", "uninstall-completions"},
 	},
 }
 
@@ -343,7 +330,6 @@ var commandSummaries = map[string]string{
 	"prune":                 "discard uncommitted working-tree changes",
 	"do":                    "run a shell command in every repo",
 	"init":                  "create or update the config file",
-	"alias":                 "define and list aliases (currently: remote)",
 	"help":                  "show this help",
 	"completion":            "print a shell completion script, for: source <(mono-vcs completion bash)",
 	"install-completions":   "install the completion script and wire it into ~/.bashrc / ~/.zshrc",

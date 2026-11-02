@@ -8,7 +8,6 @@ var repoFlags = []shellcomplete.Flag{
 	{Name: "-repo"},
 	{Name: "-feat"},
 	{Name: "-f"},
-	{Name: "-remote"},
 }
 
 func flagsFor(names ...shellcomplete.Flag) []shellcomplete.Flag {
@@ -52,9 +51,5 @@ var completionSpec = shellcomplete.Spec{
 		{Name: "new", Flags: flagsFor(append([]shellcomplete.Flag{jobsFlag, dryRunFlag}, repoFlags...)...), Args: shellcomplete.Anything, Intermixed: true},
 		{Name: "mr", Flags: flagsFor(jobsFlag, dryRunFlag, shellcomplete.Flag{Name: "-title"}), Args: shellcomplete.Anything, Intermixed: true},
 		{Name: "init"},
-		{Name: "alias", Flags: flagsFor(
-			shellcomplete.Flag{Name: "-delete", Bool: true},
-			shellcomplete.Flag{Name: "-d", Bool: true},
-		), Args: shellcomplete.Positional("remote", "ls"), Intermixed: true},
 	},
 }
